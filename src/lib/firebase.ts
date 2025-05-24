@@ -6,6 +6,11 @@ import { getDatabase, type Database } from "firebase/database";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 // Import getAnalytics and isSupported from firebase/analytics
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
+// Import additional Firebase services
+import { getMessaging, type Messaging } from "firebase/messaging";
+import { getRemoteConfig, type RemoteConfig } from "firebase/remote-config";
+import { getPerformance, type FirebasePerformance } from "firebase/performance";
+import { getFunctions, type Functions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -25,21 +30,31 @@ const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const database: Database = getDatabase(app);
 const storage: FirebaseStorage = getStorage(app);
+const functions: Functions = getFunctions(app); // Initialize Functions
 
-let analytics: Analytics | null = null; // Initialize as null
+// Initialize services that are typically client-side or depend on browser environment
+let analytics: Analytics | null = null;
+let performance: FirebasePerformance | null = null;
+let messaging: Messaging | null = null;
+let remoteConfig: RemoteConfig | null = null;
 
-// Conditionally initialize Analytics on the client side
 if (typeof window !== 'undefined') {
   isSupported().then(supported => {
     if (supported) {
       analytics = getAnalytics(app);
+      performance = getPerformance(app); // Initialize Performance
+      messaging = getMessaging(app); // Initialize Messaging
+      remoteConfig = getRemoteConfig(app); // Initialize Remote Config
+      // You might want to set default Remote Config values and activate it here
+      // For example:
+      // remoteConfig.defaultConfig = { "welcome_message": "Hello" };
+      // fetchAndActivate(remoteConfig);
     } else {
-      console.log("Firebase Analytics is not supported in this environment.");
+      console.log("Firebase Analytics, Performance, Messaging, or Remote Config is not supported in this environment.");
     }
   }).catch(error => {
-    // It's good practice to catch potential errors from the promise
-    console.error("Error checking Firebase Analytics support:", error);
+    console.error("Error checking Firebase service support:", error);
   });
 }
 
-export { app, auth, db, database, storage, analytics };
+export { app, auth, db, database, storage, analytics, functions, performance, messaging, remoteConfig };
