@@ -1,3 +1,4 @@
+
 // Import the functions you need from the SDKs you need
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
@@ -14,11 +15,13 @@ import { getFunctions, type Functions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// IMPORTANT: Replace this entire object with your project's actual Firebase config
+// from the Firebase console (Project Settings > General > Your apps > SDK setup and configuration)
 const firebaseConfig = {
-  apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M",
+  apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M", // <<< THIS IS LIKELY THE ISSUE. REPLACE WITH YOUR KEY.
   authDomain: "autobook-38b5f.firebaseapp.com",
   projectId: "autobook-38b5f",
-  storageBucket: "autobook-38b5f.appspot.com", // Corrected storageBucket
+  storageBucket: "autobook-38b5f.appspot.com",
   messagingSenderId: "822286913370",
   appId: "1:822286913370:web:8f81605eda17bd34b82d63",
   measurementId: "G-HR8G865SG3"
@@ -30,7 +33,7 @@ const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const database: Database = getDatabase(app);
 const storage: FirebaseStorage = getStorage(app);
-const functions: Functions = getFunctions(app); // Initialize Functions
+const functions: Functions = getFunctions(app);
 
 // Initialize services that are typically client-side or depend on browser environment
 let analytics: Analytics | null = null;
@@ -42,13 +45,21 @@ if (typeof window !== 'undefined') {
   isSupported().then(supported => {
     if (supported) {
       analytics = getAnalytics(app);
-      performance = getPerformance(app); // Initialize Performance
-      messaging = getMessaging(app); // Initialize Messaging
-      remoteConfig = getRemoteConfig(app); // Initialize Remote Config
+      performance = getPerformance(app);
+      try {
+        messaging = getMessaging(app);
+      } catch (err) {
+        console.log('Failed to initialize Firebase Messaging', err);
+      }
+      try {
+        remoteConfig = getRemoteConfig(app);
       // You might want to set default Remote Config values and activate it here
       // For example:
       // remoteConfig.defaultConfig = { "welcome_message": "Hello" };
       // fetchAndActivate(remoteConfig);
+      } catch (err) {
+         console.log('Failed to initialize Firebase Remote Config', err);
+      }
     } else {
       console.log("Firebase Analytics, Performance, Messaging, or Remote Config is not supported in this environment.");
     }
