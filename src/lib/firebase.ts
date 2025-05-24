@@ -14,18 +14,16 @@ import { getPerformance, type FirebasePerformance } from "firebase/performance";
 import { getFunctions, type Functions } from "firebase/functions";
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// IMPORTANT: Replace this entire object with your project's actual Firebase config
-// from the Firebase console (Project Settings > General > Your apps > SDK setup and configuration)
 const firebaseConfig = {
-  apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M", // <<< THIS IS LIKELY THE ISSUE. REPLACE WITH YOUR KEY.
+  apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M",
   authDomain: "autobook-38b5f.firebaseapp.com",
   projectId: "autobook-38b5f",
-  storageBucket: "autobook-38b5f.appspot.com",
+  storageBucket: "autobook-38b5f.firebasestorage.app",
   messagingSenderId: "822286913370",
   appId: "1:822286913370:web:8f81605eda17bd34b82d63",
   measurementId: "G-HR8G865SG3"
 };
+
 
 // Initialize Firebase
 const app: FirebaseApp = initializeApp(firebaseConfig);
