@@ -1,8 +1,9 @@
 
 export interface Vehicle {
   id: string;
+  userId?: string; // Firebase UID of the owner
   ownerName: string;
-  contactDetails: string;
+  contactDetails: string; // Used as owner's email for mechanic login
   make: string;
   model: string;
   year: number;
@@ -29,6 +30,7 @@ export interface Vehicle {
   insuranceRenewalDate?: string; // ISO date string
   breakdownCoverProvider?: string;
   breakdownCoverPolicyNumber?: string;
+  mechanicAccessCode?: string; // Placeholder for mechanic access
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -36,6 +38,7 @@ export interface Vehicle {
 export interface MaintenanceLog {
   id: string;
   vehicleId: string;
+  userId?: string; // Firebase UID of the owner
   date: string; // ISO date string
   mileage: number;
   type: string; // e.g., "Oil Change", "Tire Rotation"
@@ -49,6 +52,7 @@ export interface MaintenanceLog {
 export interface RepairRecord {
   id: string;
   vehicleId: string;
+  userId?: string; // Firebase UID of the owner
   date: string; // ISO date string
   mileage: number;
   issue: string;
@@ -64,6 +68,7 @@ export interface RepairRecord {
 export interface ServiceReminder {
   id: string;
   vehicleId: string;
+  userId?: string; // Firebase UID of the owner
   type: string; // e.g., "MOT Due", "Next Service", "Warranty Expiration"
   dueDate: string; // ISO date string
   notes?: string;
@@ -74,6 +79,7 @@ export interface ServiceReminder {
 export interface Document {
   id: string;
   vehicleId: string;
+  userId?: string; // Firebase UID of the owner
   name: string;
   type: 'Insurance Certificate' | 'Logbook/V5' | 'MOT Certificate' | 'Service Book Scan' | 'Invoice/Receipt' | 'Warranty Document' | 'Other';
   uploadDate: string; // ISO date string
@@ -85,6 +91,7 @@ export interface Document {
 export interface VoiceMemo {
   id: string;
   vehicleId: string;
+  userId?: string; // Firebase UID of the owner
   title: string;
   date: string; // ISO date string
   transcription?: string;
@@ -94,7 +101,8 @@ export interface VoiceMemo {
 }
 
 export interface MOTRecord {
-  id: string;
+  id:string;
+  userId?: string; // Firebase UID of the owner
   date: string; // ISO date string
   mileage: number;
   result: 'Pass' | 'Fail' | 'Advisory';
@@ -104,6 +112,7 @@ export interface MOTRecord {
 
 export interface FuelLog {
   id: string;
+  userId?: string; // Firebase UID of the owner
   date: string; // ISO date string
   mileage: number;
   liters: number;

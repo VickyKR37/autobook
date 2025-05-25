@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import type { Vehicle, MaintenanceLog, RepairRecord, ServiceReminder, Document, VoiceMemo, MOTRecord, FuelLog } from '@/types';
 import { immer } from 'zustand/middleware/immer';
@@ -11,39 +12,41 @@ interface AutoBookState {
   voiceMemos: VoiceMemo[];
 
   // Vehicle actions
-  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>) => Vehicle;
+  addVehicle: (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'> & { userId?: string }) => Vehicle;
   updateVehicle: (vehicle: Partial<Vehicle> & { id: string }) => void;
   deleteVehicle: (vehicleId: string) => void;
   getVehicleById: (vehicleId: string) => Vehicle | undefined;
+  getVehiclesByUserId: (userId: string) => Vehicle[];
+
 
   // MaintenanceLog actions
-  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'createdAt'>) => MaintenanceLog;
+  addMaintenanceLog: (log: Omit<MaintenanceLog, 'id' | 'createdAt'> & { userId?: string }) => MaintenanceLog;
   updateMaintenanceLog: (log: Partial<MaintenanceLog> & { id: string }) => void;
   deleteMaintenanceLog: (logId: string) => void;
-  getMaintenanceLogsByVehicleId: (vehicleId: string) => MaintenanceLog[];
+  getMaintenanceLogsByVehicleId: (vehicleId: string, userId?: string) => MaintenanceLog[];
   
   // RepairRecord actions
-  addRepairRecord: (record: Omit<RepairRecord, 'id' | 'createdAt'>) => RepairRecord;
+  addRepairRecord: (record: Omit<RepairRecord, 'id' | 'createdAt'> & { userId?: string }) => RepairRecord;
   updateRepairRecord: (record: Partial<RepairRecord> & { id: string }) => void;
   deleteRepairRecord: (recordId: string) => void;
-  getRepairRecordsByVehicleId: (vehicleId: string) => RepairRecord[];
+  getRepairRecordsByVehicleId: (vehicleId: string, userId?: string) => RepairRecord[];
 
   // ServiceReminder actions
-  addServiceReminder: (reminder: Omit<ServiceReminder, 'id' | 'createdAt'>) => ServiceReminder;
+  addServiceReminder: (reminder: Omit<ServiceReminder, 'id' | 'createdAt' | 'isCompleted'> & { userId?: string }) => ServiceReminder;
   updateServiceReminder: (reminder: Partial<ServiceReminder> & { id: string }) => void;
   deleteServiceReminder: (reminderId: string) => void;
-  getServiceRemindersByVehicleId: (vehicleId: string) => ServiceReminder[];
+  getServiceRemindersByVehicleId: (vehicleId: string, userId?: string) => ServiceReminder[];
   toggleReminderCompletion: (reminderId: string) => void;
 
   // Document actions
-  addDocument: (doc: Omit<Document, 'id' | 'createdAt'>) => Document;
+  addDocument: (doc: Omit<Document, 'id' | 'createdAt'> & { userId?: string }) => Document;
   deleteDocument: (docId: string) => void;
-  getDocumentsByVehicleId: (vehicleId: string) => Document[];
+  getDocumentsByVehicleId: (vehicleId: string, userId?: string) => Document[];
 
   // VoiceMemo actions
-  addVoiceMemo: (memo: Omit<VoiceMemo, 'id' | 'createdAt'>) => VoiceMemo;
+  addVoiceMemo: (memo: Omit<VoiceMemo, 'id' | 'createdAt'> & { userId?: string }) => VoiceMemo;
   deleteVoiceMemo: (memoId: string) => void;
-  getVoiceMemosByVehicleId: (vehicleId: string) => VoiceMemo[];
+  getVoiceMemosByVehicleId: (vehicleId: string, userId?: string) => VoiceMemo[];
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -61,6 +64,8 @@ export const useAutoBookStore = create<AutoBookState>()(
       const newVehicle: Vehicle = {
         ...vehicleData,
         id: generateId(),
+        userId: vehicleData.userId, // Ensure userId is passed and set
+        mechanicAccessCode: 'CODE123', // Placeholder for testing mechanic login
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         motHistory: vehicleData.motHistory || [],
@@ -82,6 +87,7 @@ export const useAutoBookStore = create<AutoBookState>()(
     deleteVehicle: (vehicleId) => {
       set((state) => {
         state.vehicles = state.vehicles.filter((v) => v.id !== vehicleId);
+        // Also delete related data
         state.maintenanceLogs = state.maintenanceLogs.filter((log) => log.vehicleId !== vehicleId);
         state.repairRecords = state.repairRecords.filter((record) => record.vehicleId !== vehicleId);
         state.serviceReminders = state.serviceReminders.filter((reminder) => reminder.vehicleId !== vehicleId);
@@ -92,11 +98,15 @@ export const useAutoBookStore = create<AutoBookState>()(
     getVehicleById: (vehicleId) => {
       return get().vehicles.find((v) => v.id === vehicleId);
     },
+    getVehiclesByUserId: (userId: string) => {
+      return get().vehicles.filter((v) => v.userId === userId);
+    },
 
     addMaintenanceLog: (logData) => {
       const newLog: MaintenanceLog = {
         ...logData,
         id: generateId(),
+        userId: logData.userId,
         createdAt: new Date().toISOString(),
       };
       set((state) => {
@@ -117,14 +127,16 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.maintenanceLogs = state.maintenanceLogs.filter((log) => log.id !== logId);
       });
     },
-    getMaintenanceLogsByVehicleId: (vehicleId) => {
-      return get().maintenanceLogs.filter((log) => log.vehicleId === vehicleId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    getMaintenanceLogsByVehicleId: (vehicleId, userId) => {
+      return get().maintenanceLogs.filter((log) => log.vehicleId === vehicleId && (userId ? log.userId === userId : true))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
 
     addRepairRecord: (recordData) => {
       const newRecord: RepairRecord = {
         ...recordData,
         id: generateId(),
+        userId: recordData.userId,
         createdAt: new Date().toISOString(),
       };
       set((state) => {
@@ -145,8 +157,9 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.repairRecords = state.repairRecords.filter((record) => record.id !== recordId);
       });
     },
-    getRepairRecordsByVehicleId: (vehicleId) => {
-      return get().repairRecords.filter((record) => record.vehicleId === vehicleId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    getRepairRecordsByVehicleId: (vehicleId, userId) => {
+      return get().repairRecords.filter((record) => record.vehicleId === vehicleId && (userId ? record.userId === userId : true))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
     
     addServiceReminder: (reminderData) => {
@@ -154,6 +167,7 @@ export const useAutoBookStore = create<AutoBookState>()(
         ...reminderData,
         id: generateId(),
         isCompleted: false,
+        userId: reminderData.userId,
         createdAt: new Date().toISOString(),
       };
       set((state) => {
@@ -174,8 +188,9 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.serviceReminders = state.serviceReminders.filter((r) => r.id !== reminderId);
       });
     },
-    getServiceRemindersByVehicleId: (vehicleId) => {
-      return get().serviceReminders.filter((r) => r.vehicleId === vehicleId).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    getServiceRemindersByVehicleId: (vehicleId, userId) => {
+      return get().serviceReminders.filter((r) => r.vehicleId === vehicleId && (userId ? r.userId === userId : true))
+        .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     },
     toggleReminderCompletion: (reminderId) => {
       set((state) => {
@@ -190,6 +205,7 @@ export const useAutoBookStore = create<AutoBookState>()(
       const newDoc: Document = {
         ...docData,
         id: generateId(),
+        userId: docData.userId,
         createdAt: new Date().toISOString(),
       };
       set((state) => {
@@ -202,14 +218,16 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.documents = state.documents.filter((doc) => doc.id !== docId);
       });
     },
-    getDocumentsByVehicleId: (vehicleId) => {
-      return get().documents.filter((doc) => doc.vehicleId === vehicleId).sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+    getDocumentsByVehicleId: (vehicleId, userId) => {
+      return get().documents.filter((doc) => doc.vehicleId === vehicleId && (userId ? doc.userId === userId : true))
+        .sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
     },
 
     addVoiceMemo: (memoData) => {
       const newMemo: VoiceMemo = {
         ...memoData,
         id: generateId(),
+        userId: memoData.userId,
         createdAt: new Date().toISOString(),
       };
       set((state) => {
@@ -222,8 +240,9 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.voiceMemos = state.voiceMemos.filter((memo) => memo.id !== memoId);
       });
     },
-    getVoiceMemosByVehicleId: (vehicleId) => {
-      return get().voiceMemos.filter((memo) => memo.vehicleId === vehicleId).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    getVoiceMemosByVehicleId: (vehicleId, userId) => {
+      return get().voiceMemos.filter((memo) => memo.vehicleId === vehicleId && (userId ? memo.userId === userId : true))
+        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
   }))
 );

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,14 +13,14 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Loader2 } from 'lucide-react';
+import { LogIn, Loader2, Briefcase } from 'lucide-react';
 import { useAuth } from '@/context/auth-provider';
 
 export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, mechanicTargetUser } = useAuth();
 
   const form = useForm<EmailPasswordFormValues>({
     resolver: zodResolver(emailPasswordSchema),
@@ -27,10 +28,10 @@ export default function LoginPage() {
   });
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && (user || mechanicTargetUser)) { // If regular user or mechanic session active
       router.replace('/dashboard');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, mechanicTargetUser, router]);
 
   const onSubmit = async (values: EmailPasswordFormValues) => {
     setIsSubmitting(true);
@@ -38,19 +39,14 @@ export default function LoginPage() {
     
     if (result.success) {
       toast({ title: 'Login Successful', description: 'Welcome back!' });
-      // router.push will be handled by AuthProvider state change and effect, or explicit redirect if needed
-      // Forcing a refresh can help ensure server components re-render with new auth state
       router.refresh(); 
-      // Small delay to allow auth state to propagate before router.push might be needed
-      // but usually onAuthStateChanged handles this.
-      // router.push('/dashboard'); // This might still be needed if refresh isn't enough or too slow.
     } else {
       toast({ title: 'Login Failed', description: result.error, variant: 'destructive' });
     }
     setIsSubmitting(false);
   };
   
-  if (authLoading || (!authLoading && user)) {
+  if (authLoading || (!authLoading && (user || mechanicTargetUser))) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -114,8 +110,18 @@ export default function LoginPage() {
                 Sign Up
                 </Link>
             </p>
+            <Separator />
+             <p className="text-sm text-muted-foreground">
+                Are you a mechanic?{' '}
+                <Link href="/mechanic-login" className="font-medium text-primary hover:underline">
+                Access Owner Data <Briefcase className="inline-block ml-1 h-4 w-4" />
+                </Link>
+            </p>
         </CardFooter>
       </Card>
     </div>
   );
 }
+
+// Added Separator, assuming it's from '@/components/ui/separator'
+import { Separator } from '@/components/ui/separator';

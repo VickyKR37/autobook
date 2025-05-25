@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -5,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './sidebar';
 import AppHeader from './header';
-import { useAuth } from '@/context/auth-provider'; // Import useAuth
+import { useAuth } from '@/context/auth-provider'; 
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -13,21 +14,21 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const pathname = usePathname();
-  const { user, isLoading } = useAuth(); // Get auth state
+  const { user, isLoading, mechanicTargetUser } = useAuth(); 
 
-  // Determine if the current page is an auth page (login or signup)
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  // Determine if the current page is an auth page (login, signup, or mechanic-login)
+  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/mechanic-login';
 
-  // If auth is loading, or if it's an auth page and user is not yet determined (or already logged in, redirecting)
-  // we might want to render just children or a minimal layout.
   // For auth pages, we explicitly don't want the main AppLayout (sidebar/header).
   if (isAuthPage) {
-    return <>{children}</>; // Render only children for auth pages (login, signup)
+    return <>{children}</>; 
   }
   
-  // If user is not authenticated and not on an auth page (e.g. trying to access protected route directly)
-  // AuthProvider's loading screen or page-level protection should handle this.
-  // AppLayout assumes it's rendering for an authenticated context or public pages that use the layout.
+  // If not an auth page, but no user and no mechanic session,
+  // this implies a protected route is being accessed without auth.
+  // The individual page's logic (e.g., in DashboardPage) or AuthProvider's initial load screen should handle redirection.
+  // This AppLayout component will render its structure if it's not an auth page.
+  // If isLoading, AuthProvider shows a global loader, so AppLayout might not even be reached yet.
 
   return (
     <SidebarProvider defaultOpen={true}>
