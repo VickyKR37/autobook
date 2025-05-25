@@ -1,20 +1,20 @@
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+// import { Geist, Geist_Mono } from 'next/font/google'; // Temporarily commented out
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import AppLayout from '@/components/layout/app-layout';
 import { AuthProvider } from '@/context/auth-provider';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
+// const geistSans = Geist({ // Temporarily commented out
+//   variable: '--font-geist-sans',
+//   subsets: ['latin'],
+// });
 
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+// const geistMono = Geist_Mono({ // Temporarily commented out
+//   variable: '--font-geist-mono',
+//   subsets: ['latin'],
+// });
 
 export const metadata: Metadata = {
   title: 'AutoBook - Your Car Management App',
@@ -28,7 +28,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      {/* <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}> // Temporarily commented out */}
+      <body className="antialiased"> {/* Fallback basic body class */}
         <AuthProvider> {/* AuthProvider should wrap AppLayout and Toaster if they need auth context */}
           <AppLayout>
             {children}
