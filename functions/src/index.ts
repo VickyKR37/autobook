@@ -4,8 +4,8 @@
 import * as functions from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import * as bcrypt from "bcrypt"; // For hashing access codes
 import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
+import * as bcrypt from "bcrypt"; // For hashing access codes
 
 import {
   HttpsError,
@@ -13,7 +13,7 @@ import {
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  type UserCreatedEvent, // 'type' keyword ensures it's a type import
+  type UserCreatedEvent,
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -37,7 +37,7 @@ const generatePlaintextAccessCode = (): string => {
  */
 export const createUserProfileOnSignUp = onUserCreated(
   async (event: UserCreatedEvent): Promise<void> => {
-    const user = event.data as AdminUserRecord; // Access user data via event.data
+    const user = event.data as AdminUserRecord;
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
     if (!user.email) {
@@ -144,8 +144,8 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (isMatch) {
         logger.info(
-          "Mechanic access GRANTED for owner: " + ownerEmail,
-          `(User ID: ${userProfile.userId})`
+          "Mechanic access GRANTED for owner: " +
+          `${ownerEmail} (User ID: ${userProfile.userId})`
         );
         return {
           success: true,
@@ -154,8 +154,7 @@ export const validateMechanicAccess = functions.https.onCall(
         };
       } else {
         logger.warn(
-          "Mechanic access DENIED for owner: " +
-          `${ownerEmail}. Invalid code.`
+          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
         );
         return {success: false, error: "Invalid owner email or access code."};
       }
