@@ -4,9 +4,10 @@
 import * as functions from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt"; // Ensure bcrypt is installed in functions/node_modules
 import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
-import { HttpsError } from "firebase-functions/v2/https";
+import { HttpsError, type CallableRequest } from "firebase-functions/v2/https";
+import { onUserCreated, type UserCreatedEvent } from "firebase-functions/v2/identity"; // Correct import for v2 Auth trigger
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -14,7 +15,7 @@ const SALT_ROUNDS = 10; // bcrypt salt rounds
 
 /**
  * Generates a random alphanumeric access code.
- * @returns {string} A 6-character uppercase alphanumeric code.
+ * @return {string} A 6-character uppercase alphanumeric code.
  */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -25,9 +26,9 @@ const generatePlaintextAccessCode = (): string => {
  * Creates a corresponding user profile in Firestore with a hashed mechanic
  * access code.
  */
-export const createUserProfileOnSignUp = functions.identity.user().onCreate(
-  async (event) => {
-    const user = event.data as AdminUserRecord; // Cast to AdminUserRecord
+export const createUserProfileOnSignUp = onUserCreated(
+  async (event: UserCreatedEvent) => {
+    const user = event.data as AdminUserRecord; // User data is in event.data
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
     if (!user.email) {
       logger.error(
@@ -68,11 +69,11 @@ export const createUserProfileOnSignUp = functions.identity.user().onCreate(
 
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
- * @param {functions.https.CallableRequest<{ownerEmail: string, accessCode: string}>} request - The request object.
- * @returns {Promise<{success: boolean, ownerEmail?: string, ownerUserId?: string, error?: string}>} The result.
+ * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request - The request object.
+ * @returns {Promise<{success: boolean, ownerEmail?: string, ownerUserId?: string, error?: string}>} Result.
  */
 export const validateMechanicAccess = functions.https.onCall(
-  async (request: functions.https.CallableRequest<{ ownerEmail: string; accessCode: string }>):
+  async (request: CallableRequest<{ ownerEmail: string; accessCode: string }>):
   Promise<{success: boolean; ownerEmail?: string; ownerUserId?: string; error?: string}> => {
     const {ownerEmail, accessCode} = request.data;
 
@@ -116,8 +117,7 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (isMatch) {
         logger.info(
-          `Mechanic access GRANTED for owner: ${ownerEmail} ` +
-          `(User ID: ${userProfile.userId})`
+          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`
         );
         return {
           success: true,
@@ -126,8 +126,7 @@ export const validateMechanicAccess = functions.https.onCall(
         };
       } else {
         logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. ` +
-          "Invalid access code."
+          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid access code.`
         );
         return {success: false, error: "Invalid owner email or access code."};
       }
@@ -144,11 +143,11 @@ export const validateMechanicAccess = functions.https.onCall(
 /**
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
- * @param {functions.https.CallableRequest<unknown>} request - The request object.
+ * @param {CallableRequest<unknown>} request - The request object.
  * @returns {Promise<{success: boolean, newAccessCode?: string, error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
-  async (request: functions.https.CallableRequest<unknown>):
+  async (request: CallableRequest<unknown>):
   Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
       throw new HttpsError(
