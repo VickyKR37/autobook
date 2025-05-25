@@ -13,16 +13,17 @@ import { getRemoteConfig, type RemoteConfig } from "firebase/remote-config";
 import { getPerformance, type FirebasePerformance } from "firebase/performance";
 import { getFunctions, type Functions } from "firebase/functions";
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCLHWKvhg_ZuPXsvxHpnJPQTuW3RSoE3vc",
-  authDomain: "autobook-s0cch.firebaseapp.com",
-  databaseURL: "https://autobook-s0cch-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "autobook-s0cch",
-  storageBucket: "autobook-s0cch.firebasestorage.app",
-  messagingSenderId: "1009303939584",
-  appId: "1:1009303939584:web:0305c0b9f90d6b25c306e5"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
 };
+
 
 
 // Initialize Firebase
