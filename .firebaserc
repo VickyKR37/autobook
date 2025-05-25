@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "autobook-s0cch"
-  }
+    "default": "autobook-s0cch",
+    "staging": "autobook-s0cch"
+  },
+  "targets": {},
+  "etags": {}
 }

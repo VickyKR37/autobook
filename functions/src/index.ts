@@ -1,40 +1,46 @@
+
 "use server";
 
-import * as functions from "firebase-functions/v2";
-import * as functionsAuth from "firebase-functions/v1/auth";
+import * as functions from "firebase-functions"; // v1 - for .region() and .auth
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
-import * as bcrypt from "bcrypt"; // For hashing access codes
+import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
+import * as bcrypt from "bcrypt";
 
 import {
   HttpsError,
   CallableRequest,
 } from "firebase-functions/v2/https";
 
-import {setGlobalOptions} from "firebase-functions/v2";
+import { setGlobalOptions } from "firebase-functions/v2";
+import { onUserCreated, type UserCreatedEvent } from "firebase-functions/v2/identity";
 
-setGlobalOptions({region: "eur-west4"});
-
+setGlobalOptions({ region: "europe-west1" });
 
 admin.initializeApp();
 const db = admin.firestore();
 const SALT_ROUNDS = 10; // bcrypt salt rounds
 
+/**
+ * Generates a random plaintext access code.
+ * @return {string} The generated access code.
+ */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
-  async (user: AdminUserRecord): Promise<void> => {
+// Corrected to use v2 onUserCreated trigger
+export const createUserProfileOnSignUp = onUserCreated(
+  async (event: UserCreatedEvent): Promise<void> => {
+    const user = event.data; // User data is in event.data for v2 identity triggers
     logger.info(
-      `New user signed up: ${user.uid}, email: ${user.email}`
+      `New user signed up: ${user.uid}, email: ${user.email}`,
     );
 
     if (!user.email) {
       logger.error(
         "User email is missing, cannot create user profile.",
-        {uid: user.uid},
+        { uid: user.uid },
       );
       return;
     }
@@ -59,30 +65,32 @@ export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
         .set(userProfile);
 
       logger.info(
-        `User profile created for ${user.uid} with hashed access code.`
+        `User profile created for ${user.uid} with hashed access code.`,
       );
+      // This log is for development purposes only.
+      // Ensure it's removed or appropriately handled in production.
       logger.info(
-        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`
+        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`,
       );
     } catch (error) {
       logger.error(
         `Error creating user profile for ${user.uid}:`,
-        error
+        error,
       );
     }
-  }
+  },
 );
 
 export const validateMechanicAccess = functions.https.onCall(
   async (
-    request: CallableRequest<{ownerEmail: string; accessCode: string}>,
+    request: CallableRequest<{ ownerEmail: string; accessCode: string }>,
   ): Promise<{
     success: boolean;
     ownerEmail?: string;
     ownerUserId?: string;
     error?: string;
   }> => {
-    const {ownerEmail, accessCode} = request.data;
+    const { ownerEmail, accessCode } = request.data;
 
     if (!ownerEmail || !accessCode) {
       throw new HttpsError(
@@ -92,7 +100,7 @@ export const validateMechanicAccess = functions.https.onCall(
     }
 
     logger.info(
-      `Mechanic validation attempt for owner: ${ownerEmail}`
+      `Mechanic validation attempt for owner: ${ownerEmail}`,
     );
 
     try {
@@ -115,7 +123,7 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (!userProfile.hashedMechanicAccessCode) {
         logger.error(
-          `User profile for ${ownerEmail} missing hashed access code.`
+          `User profile for ${ownerEmail} missing hashed access code.`,
         );
         return {
           success: false,
@@ -131,7 +139,7 @@ export const validateMechanicAccess = functions.https.onCall(
       if (isMatch) {
         logger.info(
           `Mechanic access GRANTED for owner: ${ownerEmail} ` +
-          `(User ID: ${userProfile.userId})`
+          `(User ID: ${userProfile.userId})`,
         );
         return {
           success: true,
@@ -140,7 +148,7 @@ export const validateMechanicAccess = functions.https.onCall(
         };
       } else {
         logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
+          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`,
         );
         return {
           success: false,
@@ -150,14 +158,14 @@ export const validateMechanicAccess = functions.https.onCall(
     } catch (error) {
       logger.error(
         "Error during mechanic access validation:",
-        error
+        error,
       );
       throw new HttpsError(
         "internal",
         "An internal error occurred during validation.",
       );
     }
-  }
+  },
 );
 
 export const regenerateMechanicAccessCode = functions.https.onCall(
@@ -177,7 +185,7 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
 
     const userId = request.auth.uid;
     logger.info(
-      `User ${userId} requesting to regenerate mechanic access code.`
+      `User ${userId} requesting to regenerate mechanic access code.`,
     );
 
     const plaintextAccessCode = generatePlaintextAccessCode();
@@ -194,8 +202,11 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       });
 
       logger.info(
-        `Mechanic access code regenerated for user ${userId}.`
+        `Mechanic access code regenerated for user ${userId}.`,
       );
+      // In a real scenario, you would not return the plaintext code here
+      // if the function's sole purpose is regeneration. This is just for
+      // demonstration or if the client needs it *immediately* one time.
       return {
         success: true,
         newAccessCode: plaintextAccessCode,
@@ -203,12 +214,12 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
     } catch (error) {
       logger.error(
         `Error regenerating code for user ${userId}:`,
-        error
+        error,
       );
       throw new HttpsError(
         "internal",
         "Failed to regenerate access code.",
       );
     }
-  }
+  },
 );
