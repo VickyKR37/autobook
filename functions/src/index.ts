@@ -13,7 +13,7 @@ import {
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  type UserCreatedEvent, // 'type' keyword ensures it's a type import
+  UserCreatedEvent, // 'type' keyword ensures it's a type import
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -32,10 +32,11 @@ const generatePlaintextAccessCode = (): string => {
  * Firebase Authentication trigger that fires when a new user is created.
  * Creates a corresponding user profile in Firestore with a hashed mechanic
  * access code.
+ * @param {UserCreatedEvent} event The event object containing user data.
+ * @return {Promise<void>} A promise that resolves when the function completes.
  */
 export const createUserProfileOnSignUp = onUserCreated(
-  async (event: UserCreatedEvent) => {
-    // User data is in event.data for v2 identity triggers
+  async (event: UserCreatedEvent): Promise<void> => {
     const user = event.data as AdminUserRecord;
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
@@ -85,7 +86,7 @@ export const createUserProfileOnSignUp = onUserCreated(
  * The request data should contain ownerEmail and accessCode.
  * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request
  * - The request object from the client.
- * @returns {Promise<{
+ * @return {Promise<{
  *  success: boolean,
  *  ownerEmail?: string,
  *  ownerUserId?: string,
@@ -172,7 +173,7 @@ export const validateMechanicAccess = functions.https.onCall(
  * their mechanic access code.
  * @param {CallableRequest<unknown>} request - The request object.
  * `request.auth` is used to identify the authenticated user.
- * @returns {Promise<{
+ * @return {Promise<{
  *  success: boolean,
  *  newAccessCode?: string, // The new plaintext code
  *  error?: string
@@ -180,7 +181,7 @@ export const validateMechanicAccess = functions.https.onCall(
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
-    request: CallableRequest<unknown> // No specific data expected in request.data
+    request: CallableRequest<unknown>
   ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
       // This check is essential for security.
@@ -212,8 +213,7 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
       logger.error(
-        `Error regenerating access code for user ${userId}:`,
-        error
+        `Error regenerating code for user ${userId}:`, error
       );
       throw new HttpsError(
         "internal",
