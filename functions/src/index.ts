@@ -10,7 +10,7 @@ const SALT_ROUNDS = 10; // bcrypt salt rounds
 
 /**
  * Generates a random alphanumeric access code.
- * @returns {string} A 6-character uppercase alphanumeric code.
+ * @return {string} A 6-character uppercase alphanumeric code.
  */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -73,6 +73,10 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
 
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
+ * @param {{ownerEmail: string, accessCode: string}} data - The input data.
+ * @param {functions.https.CallableContext} _context - The callable context.
+ * @return {Promise<{success: boolean, ownerEmail?: string,
+ *  ownerUserId?: string, error?: string}>} The result of validation.
  */
 export const validateMechanicAccess = functions.https.onCall(
   async (data, _context) => { // _context is unused for now
@@ -105,7 +109,10 @@ export const validateMechanicAccess = functions.https.onCall(
         logger.error(
           `User profile for ${ownerEmail} is missing a hashed access code.`
         );
-        return {success: false, error: "Access code not set up for this owner."};
+        return {
+          success: false,
+          error: "Access code not set up for this owner.",
+        };
       }
 
       const isMatch = await bcrypt.compare(
@@ -143,6 +150,10 @@ export const validateMechanicAccess = functions.https.onCall(
 /**
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
+ * @param {unknown} data - Input data (not used in this function).
+ * @param {functions.https.CallableContext} context - The callable context.
+ * @return {Promise<{success: boolean, newAccessCode?: string,
+ *  error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (data, context) => {
