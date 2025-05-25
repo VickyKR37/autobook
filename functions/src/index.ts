@@ -8,11 +8,12 @@ import * as bcrypt from "bcrypt";
 import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
 import {
   HttpsError,
-  type CallableRequest,
+  CallableRequest,
+  // CallableContext, // CallableContext is not directly used, request.auth is preferred
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  UserCreatedEvent, // Removed 'type' keyword here
+  type UserCreatedEvent, // Re-added 'type' keyword
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -61,7 +62,8 @@ export const createUserProfileOnSignUp = onUserCreated(
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
       logger.info(
         "User profile created for " + user.uid + " with hashed access code.",
-        "Plaintext for DEV ONLY:", plaintextAccessCode
+        "Plaintext for DEV ONLY:",
+        plaintextAccessCode
       );
     } catch (error) {
       logger.error(
@@ -171,7 +173,7 @@ export const validateMechanicAccess = functions.https.onCall(
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
-    request: CallableRequest<unknown>
+    request: CallableRequest<unknown> // No specific data expected
   ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
       throw new HttpsError(
@@ -211,5 +213,3 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
     }
   }
 );
-
-    
