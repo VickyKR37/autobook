@@ -5,23 +5,22 @@ import type { Vehicle, MaintenanceLog, RepairRecord, ServiceReminder, Document, 
 import { auth } from '@/lib/firebase'; 
 import { revalidatePath } from 'next/cache';
 
-// Helper function to generate a random access code
-const generateAccessCode = (): string => {
-  // Generates a 6-character uppercase alphanumeric code
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-};
+// Helper function to generate a random access code (No longer used for primary storage, but can be for display if needed)
+// const generateAccessCode = (): string => {
+// return Math.random().toString(36).substring(2, 8).toUpperCase();
+// };
 
 export async function addVehicleAction(vehicleData: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'mechanicAccessCode'> & { userId: string }): Promise<Vehicle> {
-  // userId is now explicitly passed in vehicleData by the calling component (using effectiveUserId)
   if (!vehicleData.userId) {
     throw new Error("User ID is required to add a vehicle.");
   }
 
   const newVehicle: Vehicle = {
     ...vehicleData,
-    id: Math.random().toString(36).substr(2, 9),
+    id: Math.random().toString(36).substr(2, 9), // Client-generated ID, consider Firestore auto-ID if moving vehicle storage there
     userId: vehicleData.userId, 
-    mechanicAccessCode: generateAccessCode(), // Generate a unique access code
+    // mechanicAccessCode is no longer generated here. It's managed by Cloud Functions and Firestore userProfiles.
+    // The 'mechanicAccessCode' field on the Vehicle type in Zustand is now primarily for potential display to the owner, not for validation.
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     motHistory: vehicleData.motHistory || [],
@@ -34,9 +33,6 @@ export async function addVehicleAction(vehicleData: Omit<Vehicle, 'id' | 'create
 }
 
 export async function updateVehicleAction(vehicleData: Partial<Vehicle> & { id: string; userId: string }): Promise<Vehicle> {
-  // userId should also be part of vehicleData to ensure the update is scoped,
-  // though the primary check is that the store update on client is correct.
-  // A real DB would enforce this more strictly.
   if (!vehicleData.userId) {
     throw new Error("User ID is required to update a vehicle.");
   }
@@ -52,7 +48,6 @@ export async function updateVehicleAction(vehicleData: Partial<Vehicle> & { id: 
 }
 
 export async function deleteVehicleAction(vehicleId: string, userId: string): Promise<{ success: boolean }> {
-  // In a real DB, you'd use userId to ensure the user has permission to delete this vehicleId
   if (!userId) {
     throw new Error("User ID is required to delete a vehicle.");
   }
@@ -61,14 +56,12 @@ export async function deleteVehicleAction(vehicleId: string, userId: string): Pr
   return { success: true };
 }
 
-// For all add actions below, data should now include userId (the effectiveUserId)
 export async function addMaintenanceLogAction(logData: Omit<MaintenanceLog, 'id' | 'createdAt'> & { userId: string }): Promise<MaintenanceLog> {
   if (!logData.userId) throw new Error("User ID is required for adding maintenance log.");
 
   const newLog: MaintenanceLog = {
     ...logData,
     id: Math.random().toString(36).substr(2, 9),
-    // userId is already in logData
     createdAt: new Date().toISOString(),
   };
   revalidatePath(`/vehicles/${logData.vehicleId}`);
@@ -81,7 +74,6 @@ export async function addRepairRecordAction(recordData: Omit<RepairRecord, 'id' 
   const newRecord: RepairRecord = {
     ...recordData,
     id: Math.random().toString(36).substr(2, 9),
-    // userId is already in recordData
     createdAt: new Date().toISOString(),
   };
   revalidatePath(`/vehicles/${recordData.vehicleId}`);
@@ -95,7 +87,6 @@ export async function addServiceReminderAction(reminderData: Omit<ServiceReminde
     ...reminderData,
     id: Math.random().toString(36).substr(2, 9),
     isCompleted: false,
-    // userId is already in reminderData
     createdAt: new Date().toISOString(),
   };
   revalidatePath(`/vehicles/${reminderData.vehicleId}`);
@@ -104,7 +95,6 @@ export async function addServiceReminderAction(reminderData: Omit<ServiceReminde
 
 export async function toggleServiceReminderAction(reminderId: string, vehicleId: string, completed: boolean, userId: string): Promise<{ success: boolean }> {
   if (!userId) throw new Error("User ID is required to toggle reminder status.");
-  // In a real app, you'd update the database entry for this reminder, ensuring userId matches.
   revalidatePath(`/vehicles/${vehicleId}`);
   return { success: true }; 
 }
@@ -116,7 +106,6 @@ export async function addDocumentAction(docData: Omit<Document, 'id' | 'createdA
   const newDoc: Document = {
     ...docData,
     id: Math.random().toString(36).substr(2, 9),
-    // userId is already in docData
     fileUrl: docData.fileName ? `/uploads/placeholder/${docData.fileName}` : '/uploads/placeholder/document.pdf', 
     createdAt: new Date().toISOString(),
   };
@@ -130,7 +119,6 @@ export async function addVoiceMemoAction(memoData: Omit<VoiceMemo, 'id' | 'creat
   const newMemo: VoiceMemo = {
     ...memoData,
     id: Math.random().toString(36).substr(2, 9),
-    // userId is already in memoData
     audioUrl: memoData.fileName ? `/uploads/placeholder/${memoData.fileName}` : '/uploads/placeholder/voicememo.mp3', 
     createdAt: new Date().toISOString(),
   };

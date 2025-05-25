@@ -30,7 +30,8 @@ export interface Vehicle {
   insuranceRenewalDate?: string; // ISO date string
   breakdownCoverProvider?: string;
   breakdownCoverPolicyNumber?: string;
-  mechanicAccessCode: string; // Securely generated access code for mechanics
+  mechanicAccessCode?: string; // PLAINTEXT: This field is being deprecated for validation. Validation now uses hashed codes in Firestore.
+                               // It MIGHT be used to temporarily display a newly generated code to the owner if that flow is implemented.
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -127,6 +128,16 @@ export interface FileAttachment {
   type: string; // e.g., 'image/jpeg', 'application/pdf'
   size: number; // in bytes
 }
+
+// UserProfile stored in Firestore
+export interface UserProfile {
+  userId: string;
+  email: string;
+  hashedMechanicAccessCode: string;
+  createdAt: any; // Firestore Timestamp
+  accessCodeLastGeneratedAt?: any; // Firestore Timestamp
+}
+
 
 // Enum for fuel types for select dropdowns
 export const FuelTypeOptions: { value: Vehicle['fuelType']; label: string }[] = [

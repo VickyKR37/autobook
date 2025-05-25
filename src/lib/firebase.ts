@@ -18,7 +18,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M",
   authDomain: "autobook-38b5f.firebaseapp.com",
   projectId: "autobook-38b5f",
-  storageBucket: "autobook-38b5f.firebasestorage.app",
+  storageBucket: "autobook-38b5f.appspot.com", // Corrected storageBucket URL
   messagingSenderId: "822286913370",
   appId: "1:822286913370:web:8f81605eda17bd34b82d63",
   measurementId: "G-HR8G865SG3"
@@ -31,7 +31,7 @@ const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const database: Database = getDatabase(app);
 const storage: FirebaseStorage = getStorage(app);
-const functions: Functions = getFunctions(app);
+const functions: Functions = getFunctions(app); // Initialize Firebase Functions
 
 // Initialize services that are typically client-side or depend on browser environment
 let analytics: Analytics | null = null;
@@ -43,7 +43,11 @@ if (typeof window !== 'undefined') {
   isSupported().then(supported => {
     if (supported) {
       analytics = getAnalytics(app);
-      performance = getPerformance(app);
+      try {
+        performance = getPerformance(app);
+      } catch (err) {
+        console.log('Failed to initialize Firebase Performance', err);
+      }
       try {
         messaging = getMessaging(app);
       } catch (err) {
