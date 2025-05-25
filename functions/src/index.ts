@@ -1,40 +1,39 @@
-"use server";
-
-import * as functions from "firebase-functions";
-import {
-  CallableRequest,
-  HttpsError,
-} from "firebase-functions/v2/https";
-import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
-import type {UserRecord} from "firebase-admin/auth";
+import * as functions from "firebase-functions";
+import type { UserRecord } from "firebase-admin/auth";
+import type { HttpsError, CallableContext } from "firebase-functions/v1/https"; // For v1 onCall
 
 admin.initializeApp();
 const db = admin.firestore();
+
 const SALT_ROUNDS = 10;
 
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-type UserProfile = {
+interface UserProfile {
   userId: string;
   email: string;
   hashedMechanicAccessCode: string;
-};
+  createdAt: admin.firestore.FieldValue; // For server timestamp
+  accessCodeLastGeneratedAt?: admin.firestore.FieldValue;
+}
 
 export const createUserProfileOnSignUp = functions
   .region("europe-west1")
-  .auth
-  .user()
+  .auth.user()
   .onCreate(async (user: UserRecord): Promise<void> => {
-    logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
+    functions.logger.info(
+      `New user signed up: ${user.uid}, email: ${user.email}`,
+    );
 
     if (!user.email) {
-      logger.error("User email is missing, cannot create user profile.", {
-        uid: user.uid,
-      });
+      functions.logger.error(
+        "User email is missing, cannot create user profile.",
+        { uid: user.uid },
+      );
       return;
     }
 
@@ -46,7 +45,7 @@ export const createUserProfileOnSignUp = functions
         SALT_ROUNDS,
       );
 
-      const userProfile: UserProfile = {
+      const userProfileData: Omit<UserProfile, "createdAt"> = {
         userId: user.uid,
         email: user.email,
         hashedMechanicAccessCode,
@@ -56,41 +55,53 @@ export const createUserProfileOnSignUp = functions
         .collection("userProfiles")
         .doc(user.uid)
         .set({
-          ...userProfile,
+          ...userProfileData,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
-      logger.info(`User profile created for ${user.uid}`);
-      logger.info(
+      functions.logger.info(`User profile created for ${user.uid}`);
+      functions.logger.info(
         `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`,
       );
     } catch (error) {
-      logger.error(`Error creating user profile for ${user.uid}:`, error);
+      functions.logger.error(
+        `Error creating user profile for ${user.uid}:`,
+        error,
+      );
     }
   });
 
+interface ValidateMechanicAccessData {
+  ownerEmail: string;
+  accessCode: string;
+}
+
+interface ValidateMechanicAccessResult {
+  success: boolean;
+  ownerEmail?: string;
+  ownerUserId?: string;
+  error?: string;
+}
+
 export const validateMechanicAccess = functions
   .region("europe-west1")
-  .https
-  .onCall(
+  .https.onCall(
     async (
-      request: CallableRequest<{ownerEmail: string; accessCode: string}>,
-    ): Promise<{
-      success: boolean;
-      ownerEmail?: string;
-      ownerUserId?: string;
-      error?: string;
-    }> => {
-      const {ownerEmail, accessCode} = request.data;
+      data: ValidateMechanicAccessData,
+      context: CallableContext, // context is optional for v1 but good for auth checks
+    ): Promise<ValidateMechanicAccessResult> => {
+      const { ownerEmail, accessCode } = data;
 
       if (!ownerEmail || !accessCode) {
-        throw new HttpsError(
+        throw new functions.https.HttpsError(
           "invalid-argument",
           "Owner email and access code are required.",
         );
       }
 
-      logger.info(`Mechanic validation attempt for owner: ${ownerEmail}`);
+      functions.logger.info(
+        `Mechanic validation attempt for owner: ${ownerEmail}`,
+      );
 
       try {
         const profileQuery = await db
@@ -100,7 +111,9 @@ export const validateMechanicAccess = functions
           .get();
 
         if (profileQuery.empty) {
-          logger.warn(`No user profile found for email: ${ownerEmail}`);
+          functions.logger.warn(
+            `No user profile found for email: ${ownerEmail}`,
+          );
           return {
             success: false,
             error: "Invalid owner email or access code.",
@@ -108,10 +121,11 @@ export const validateMechanicAccess = functions
         }
 
         const userProfileDoc = profileQuery.docs[0];
+        // Cast to a more specific type if possible, or use as any and check properties
         const userProfile = userProfileDoc.data() as UserProfile;
 
         if (!userProfile.hashedMechanicAccessCode) {
-          logger.error(
+          functions.logger.error(
             `User profile for ${ownerEmail} missing hashed access code.`,
           );
           return {
@@ -126,9 +140,9 @@ export const validateMechanicAccess = functions
         );
 
         if (isMatch) {
-          logger.info(
+          functions.logger.info(
             `Mechanic access GRANTED for owner: ${ownerEmail} ` +
-              `(User ID: ${userProfile.userId})`,
+            `(User ID: ${userProfile.userId})`,
           );
           return {
             success: true,
@@ -136,7 +150,7 @@ export const validateMechanicAccess = functions
             ownerUserId: userProfile.userId,
           };
         } else {
-          logger.warn(
+          functions.logger.warn(
             `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`,
           );
           return {
@@ -145,35 +159,42 @@ export const validateMechanicAccess = functions
           };
         }
       } catch (error) {
-        logger.error("Error during mechanic access validation:", error);
-        throw new HttpsError(
-          "internal",
-          "An internal error occurred during validation.",
+        functions.logger.error(
+          "Error during mechanic access validation:",
+          error,
+        );
+        // It's good practice to cast error to HttpsError or Error type
+        const httpsError = error as HttpsError;
+        throw new functions.https.HttpsError(
+          httpsError.code || "internal",
+          httpsError.message || "An internal error occurred.",
         );
       }
     },
   );
 
+interface RegenerateCodeResult {
+  success: boolean;
+  newAccessCode?: string;
+  error?: string;
+}
+
 export const regenerateMechanicAccessCode = functions
   .region("europe-west1")
-  .https
-  .onCall(
+  .https.onCall(
     async (
-      request: CallableRequest<unknown>,
-    ): Promise<{
-      success: boolean;
-      newAccessCode?: string;
-      error?: string;
-    }> => {
-      if (!request.auth) {
-        throw new HttpsError(
+      data: unknown, // Data is not used, but required by onCall
+      context: CallableContext,
+    ): Promise<RegenerateCodeResult> => {
+      if (!context.auth) {
+        throw new functions.https.HttpsError(
           "unauthenticated",
           "User must be authenticated to regenerate access code.",
         );
       }
 
-      const userId = request.auth.uid;
-      logger.info(
+      const userId = context.auth.uid;
+      functions.logger.info(
         `User ${userId} requesting to regenerate mechanic access code.`,
       );
 
@@ -191,9 +212,9 @@ export const regenerateMechanicAccessCode = functions
             admin.firestore.FieldValue.serverTimestamp(),
         });
 
-        logger.info(
+        functions.logger.info(
           `Mechanic access code regenerated for user ${userId}. ` +
-            `New plaintext code (DEV ONLY): ${plaintextAccessCode}`,
+          `New plaintext code (DEV ONLY): ${plaintextAccessCode}`,
         );
 
         return {
@@ -201,13 +222,14 @@ export const regenerateMechanicAccessCode = functions
           newAccessCode: plaintextAccessCode,
         };
       } catch (error) {
-        logger.error(
+        functions.logger.error(
           `Error regenerating code for user ${userId}:`,
           error,
         );
-        throw new HttpsError(
-          "internal",
-          "Failed to regenerate access code.",
+        const httpsError = error as HttpsError;
+        throw new functions.https.HttpsError(
+          httpsError.code || "internal",
+          httpsError.message || "Failed to regenerate access code.",
         );
       }
     },
