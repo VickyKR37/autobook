@@ -1,13 +1,19 @@
 
-'use server';
+"use server";
 
 import * as functions from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import * as bcrypt from "bcrypt"; // Ensure bcrypt is installed in functions/node_modules
-import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
-import { HttpsError, type CallableRequest } from "firebase-functions/v2/https";
-import { onUserCreated, type UserCreatedEvent } from "firebase-functions/v2/identity"; // Correct import for v2 Auth trigger
+import * as bcrypt from "bcrypt";
+import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
+import {
+  HttpsError,
+  type CallableRequest,
+} from "firebase-functions/v2/https";
+import {
+  onUserCreated,
+  type UserCreatedEvent,
+} from "firebase-functions/v2/identity";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -55,7 +61,7 @@ export const createUserProfileOnSignUp = onUserCreated(
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
       logger.info(
         `User profile created for ${user.uid} with hashed access code. ` +
-        `Plaintext for initial sharing (DEV ONLY): ${plaintextAccessCode}`
+        `Plaintext for DEV ONLY: ${plaintextAccessCode}`
       );
     } catch (error) {
       logger.error(
@@ -69,12 +75,20 @@ export const createUserProfileOnSignUp = onUserCreated(
 
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
- * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request - The request object.
- * @returns {Promise<{success: boolean, ownerEmail?: string, ownerUserId?: string, error?: string}>} Result.
+ * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request
+ * - The request object.
+ * @returns {Promise<{success: boolean, ownerEmail?: string,
+ * ownerUserId?: string, error?: string}>} Result.
  */
 export const validateMechanicAccess = functions.https.onCall(
-  async (request: CallableRequest<{ ownerEmail: string; accessCode: string }>):
-  Promise<{success: boolean; ownerEmail?: string; ownerUserId?: string; error?: string}> => {
+  async (
+    request: CallableRequest<{ownerEmail: string; accessCode: string}>
+  ): Promise<{
+    success: boolean;
+    ownerEmail?: string;
+    ownerUserId?: string;
+    error?: string;
+  }> => {
     const {ownerEmail, accessCode} = request.data;
 
     if (!ownerEmail || !accessCode) {
@@ -117,7 +131,8 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (isMatch) {
         logger.info(
-          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`
+          `Mechanic access GRANTED for owner: ${ownerEmail} ` +
+          `(User ID: ${userProfile.userId})`
         );
         return {
           success: true,
@@ -126,7 +141,7 @@ export const validateMechanicAccess = functions.https.onCall(
         };
       } else {
         logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid access code.`
+          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
         );
         return {success: false, error: "Invalid owner email or access code."};
       }
@@ -144,11 +159,13 @@ export const validateMechanicAccess = functions.https.onCall(
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
  * @param {CallableRequest<unknown>} request - The request object.
- * @returns {Promise<{success: boolean, newAccessCode?: string, error?: string}>} Result.
+ * @returns {Promise<{success: boolean, newAccessCode?: string,
+ * error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
-  async (request: CallableRequest<unknown>):
-  Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
+  async (
+    request: CallableRequest<unknown>
+  ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
