@@ -12,6 +12,11 @@ import {
   CallableRequest,
 } from "firebase-functions/v2/https";
 
+import {setGlobalOptions} from "firebase-functions/v2";
+
+setGlobalOptions({region: "eur-west4"});
+
+
 admin.initializeApp();
 const db = admin.firestore();
 const SALT_ROUNDS = 10; // bcrypt salt rounds
