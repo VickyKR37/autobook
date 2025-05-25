@@ -1,10 +1,12 @@
 
+'use server';
+
 import * as functions from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
-import type { UserRecord } from "firebase-functions/v2/auth"; // For typing auth trigger user
-import type { CallableRequest, HttpsError } from "firebase-functions/v2/https"; // For typing callable context and request data
+import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
+import { HttpsError } from "firebase-functions/v2/https";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,7 +14,7 @@ const SALT_ROUNDS = 10; // bcrypt salt rounds
 
 /**
  * Generates a random alphanumeric access code.
- * @return {string} A 6-character uppercase alphanumeric code.
+ * @returns {string} A 6-character uppercase alphanumeric code.
  */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -23,8 +25,9 @@ const generatePlaintextAccessCode = (): string => {
  * Creates a corresponding user profile in Firestore with a hashed mechanic
  * access code.
  */
-export const createUserProfileOnSignUp = functions.auth.user().onCreate(
-  async (user: UserRecord) => {
+export const createUserProfileOnSignUp = functions.identity.user().onCreate(
+  async (event) => {
+    const user = event.data as AdminUserRecord; // Cast to AdminUserRecord
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
     if (!user.email) {
       logger.error(
@@ -46,11 +49,6 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
         email: user.email,
         hashedMechanicAccessCode: hashedMechanicAccessCode,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        // You can return the plaintext code in the function logs for initial
-        // setup/testing but it should NOT be stored in Firestore or returned
-        // to the client from this trigger.
-        // An owner would get their code through a separate, secure
-        // client-callable function.
       };
 
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
@@ -58,16 +56,11 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
         `User profile created for ${user.uid} with hashed access code. ` +
         `Plaintext for initial sharing (DEV ONLY): ${plaintextAccessCode}`
       );
-      // IMPORTANT: For production, the owner needs a way to securely retrieve
-      // this plaintext code ONCE. This could be a separate callable function
-      // they invoke after signup.
     } catch (error) {
       logger.error(
         `Error creating user profile for ${user.uid}:`,
         error
       );
-      // Optionally, you could send the plaintext code to the user via email
-      // here, but that adds email service dependencies.
     }
   }
 );
@@ -75,16 +68,16 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
 
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
- * @param {{ownerEmail: string, accessCode: string}} data - The input data.
- * @return {Promise<{success: boolean, ownerEmail?: string,
- *  ownerUserId?: string, error?: string}>} The result of validation.
+ * @param {functions.https.CallableRequest<{ownerEmail: string, accessCode: string}>} request - The request object.
+ * @returns {Promise<{success: boolean, ownerEmail?: string, ownerUserId?: string, error?: string}>} The result.
  */
 export const validateMechanicAccess = functions.https.onCall(
-  async (data: { ownerEmail: string; accessCode: string }): Promise<{success: boolean; ownerEmail?: string; ownerUserId?: string; error?: string}> => {
-    const {ownerEmail, accessCode} = data;
+  async (request: functions.https.CallableRequest<{ ownerEmail: string; accessCode: string }>):
+  Promise<{success: boolean; ownerEmail?: string; ownerUserId?: string; error?: string}> => {
+    const {ownerEmail, accessCode} = request.data;
 
     if (!ownerEmail || !accessCode) {
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "invalid-argument",
         "Owner email and access code are required."
       );
@@ -140,7 +133,7 @@ export const validateMechanicAccess = functions.https.onCall(
       }
     } catch (error) {
       logger.error("Error during mechanic access validation:", error);
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "internal",
         "An internal error occurred during validation."
       );
@@ -151,20 +144,19 @@ export const validateMechanicAccess = functions.https.onCall(
 /**
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
- * @param {unknown} _data - Input data (not used in this function).
- * @param {functions.https.CallableContext} context - The callable context.
- * @return {Promise<{success: boolean, newAccessCode?: string,
- *  error?: string}>} Result.
+ * @param {functions.https.CallableRequest<unknown>} request - The request object.
+ * @returns {Promise<{success: boolean, newAccessCode?: string, error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
-  async (_data: unknown, context: functions.https.CallableContext): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
+  async (request: functions.https.CallableRequest<unknown>):
+  Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
+    if (!request.auth) {
+      throw new HttpsError(
         "unauthenticated",
         "User must be authenticated to regenerate access code."
       );
     }
-    const userId = context.auth.uid;
+    const userId = request.auth.uid;
     logger.info(
       `User ${userId} requesting to regenerate mechanic access code.`
     );
@@ -183,14 +175,13 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       });
 
       logger.info(`Mechanic access code regenerated for user ${userId}.`);
-      // Return the new PLAINTEXT code to the authenticated owner ONCE.
       return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
       logger.error(
         `Error regenerating access code for user ${userId}:`,
         error
       );
-      throw new functions.https.HttpsError(
+      throw new HttpsError(
         "internal",
         "Failed to regenerate access code."
       );
