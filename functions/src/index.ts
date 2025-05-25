@@ -1,7 +1,4 @@
 
-"use server";
-
-import * as functions from "firebase-functions"; // v1 - for .region() and .auth
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
@@ -10,10 +7,14 @@ import * as bcrypt from "bcrypt";
 import {
   HttpsError,
   CallableRequest,
+  onCall, // Import v2 onCall
 } from "firebase-functions/v2/https";
 
 import { setGlobalOptions } from "firebase-functions/v2";
-import { onUserCreated, type UserCreatedEvent } from "firebase-functions/v2/identity";
+import {
+  onUserCreated,
+  type UserCreatedEvent,
+} from "firebase-functions/v2/identity";
 
 setGlobalOptions({ region: "europe-west1" });
 
@@ -29,7 +30,6 @@ const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-// Corrected to use v2 onUserCreated trigger
 export const createUserProfileOnSignUp = onUserCreated(
   async (event: UserCreatedEvent): Promise<void> => {
     const user = event.data; // User data is in event.data for v2 identity triggers
@@ -81,7 +81,8 @@ export const createUserProfileOnSignUp = onUserCreated(
   },
 );
 
-export const validateMechanicAccess = functions.https.onCall(
+// v2 onCall function
+export const validateMechanicAccess = onCall(
   async (
     request: CallableRequest<{ ownerEmail: string; accessCode: string }>,
   ): Promise<{
@@ -119,7 +120,7 @@ export const validateMechanicAccess = functions.https.onCall(
       }
 
       const userProfileDoc = profileQuery.docs[0];
-      const userProfile = userProfileDoc.data();
+      const userProfile = userProfileDoc.data() as any; // Cast to any or define UserProfile type
 
       if (!userProfile.hashedMechanicAccessCode) {
         logger.error(
@@ -168,9 +169,10 @@ export const validateMechanicAccess = functions.https.onCall(
   },
 );
 
-export const regenerateMechanicAccessCode = functions.https.onCall(
+// v2 onCall function
+export const regenerateMechanicAccessCode = onCall(
   async (
-    request: CallableRequest<unknown>,
+    request: CallableRequest<unknown>, // data is not expected, so unknown is fine
   ): Promise<{
     success: boolean;
     newAccessCode?: string;
@@ -203,6 +205,8 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
 
       logger.info(
         `Mechanic access code regenerated for user ${userId}.`,
+        "New plaintext code (DEV ONLY):",
+        plaintextAccessCode,
       );
       // In a real scenario, you would not return the plaintext code here
       // if the function's sole purpose is regeneration. This is just for
