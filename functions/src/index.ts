@@ -45,7 +45,7 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(async (u
     logger.info(`User profile created for ${user.uid} with hashed access code. Plaintext for initial sharing (DEV ONLY): ${plaintextAccessCode}`);
     // IMPORTANT: For production, the owner needs a way to securely retrieve this plaintext code ONCE.
     // This could be a separate callable function they invoke after signup.
-  } catch (error)
+  } catch (error) { // Added curly braces here
     logger.error(`Error creating user profile for ${user.uid}:`, error);
     // Optionally, you could send the plaintext code to the user via email here,
     // but that adds email service dependencies.
