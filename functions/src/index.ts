@@ -1,96 +1,95 @@
 "use server";
 
-import * as functionsV1 from "firebase-functions"; // v1 - for .region() and auth
+import {onUserCreated} from "firebase-functions/v2/identity";
+import {
+  onCall,
+  CallableRequest,
+  HttpsError,
+  setGlobalOptions,
+} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
+import type {UserRecord} from "firebase-admin/auth";
 
-import {
-  onCall,
-  HttpsError,
-  CallableRequest,
-} from "firebase-functions/v2/https";
-import { setGlobalOptions } from "firebase-functions/v2";
+// Set default region for all v2 functions
+setGlobalOptions({region: "europe-west1"});
 
-import type { UserRecord } from "firebase-admin/auth"; // ✅ Correct type for user
-
-// Set default region for v2 functions
-setGlobalOptions({ region: "europe-west1" });
-
-// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 const SALT_ROUNDS = 10;
 
-/**
- * Generates a random plaintext access code.
- * @return {string} The generated access code.
- */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
 
-/**
- * Triggered when a new user signs up.
- * Creates a user profile in Firestore with a hashed access code.
- */
-export const createUserProfileOnSignUp = functionsV1
-  .region("europe-west1")
-  .auth
-  .user()
-  .onCreate(async (user: UserRecord): Promise<void> => {
+type UserProfile = {
+  userId: string;
+  email: string;
+  hashedMechanicAccessCode: string;
+};
+
+export const createUserProfileOnSignUp = onUserCreated(
+  async (event): Promise<void> => {
+    const user = event.data;
+
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
     if (!user.email) {
-      logger.error("User email is missing, cannot create user profile.", {
-        uid: user.uid,
-      });
+      logger.error(
+        "User email is missing, cannot create user profile.",
+        {uid: user.uid},
+      );
       return;
     }
 
     const plaintextAccessCode = generatePlaintextAccessCode();
+
     try {
       const hashedMechanicAccessCode = await bcrypt.hash(
         plaintextAccessCode,
-        SALT_ROUNDS
+        SALT_ROUNDS,
       );
 
-      const userProfile = {
+      const userProfile: UserProfile = {
         userId: user.uid,
         email: user.email,
         hashedMechanicAccessCode,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
-      await db.collection("userProfiles").doc(user.uid).set(userProfile);
+      await db
+        .collection("userProfiles")
+        .doc(user.uid)
+        .set({
+          ...userProfile,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
 
-      logger.info(`User profile created for ${user.uid}.`);
+      logger.info(`User profile created for ${user.uid}`);
       logger.info(
-        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`
+        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`,
       );
     } catch (error) {
       logger.error(`Error creating user profile for ${user.uid}:`, error);
     }
-  });
+  },
+);
 
-/**
- * Called by mechanics to validate access to an owner's data.
- */
 export const validateMechanicAccess = onCall(
   async (
-    request: CallableRequest<{ ownerEmail: string; accessCode: string }>
+    request: CallableRequest<{ownerEmail: string; accessCode: string}>,
   ): Promise<{
     success: boolean;
     ownerEmail?: string;
     ownerUserId?: string;
     error?: string;
   }> => {
-    const { ownerEmail, accessCode } = request.data;
+    const {ownerEmail, accessCode} = request.data;
 
     if (!ownerEmail || !accessCode) {
       throw new HttpsError(
         "invalid-argument",
-        "Owner email and access code are required."
+        "Owner email and access code are required.",
       );
     }
 
@@ -112,11 +111,11 @@ export const validateMechanicAccess = onCall(
       }
 
       const userProfileDoc = profileQuery.docs[0];
-      const userProfile = userProfileDoc.data() as any;
+      const userProfile = userProfileDoc.data() as UserProfile;
 
       if (!userProfile.hashedMechanicAccessCode) {
         logger.error(
-          `User profile for ${ownerEmail} missing hashed access code.`
+          `User profile for ${ownerEmail} missing hashed access code.`,
         );
         return {
           success: false,
@@ -126,12 +125,12 @@ export const validateMechanicAccess = onCall(
 
       const isMatch = await bcrypt.compare(
         accessCode,
-        userProfile.hashedMechanicAccessCode
+        userProfile.hashedMechanicAccessCode,
       );
 
       if (isMatch) {
         logger.info(
-          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`
+          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`,
         );
         return {
           success: true,
@@ -140,7 +139,7 @@ export const validateMechanicAccess = onCall(
         };
       } else {
         logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
+          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`,
         );
         return {
           success: false,
@@ -151,36 +150,38 @@ export const validateMechanicAccess = onCall(
       logger.error("Error during mechanic access validation:", error);
       throw new HttpsError(
         "internal",
-        "An internal error occurred during validation."
+        "An internal error occurred during validation.",
       );
     }
-  }
+  },
 );
 
-/**
- * Allows an authenticated user to regenerate their mechanic access code.
- */
 export const regenerateMechanicAccessCode = onCall(
   async (
-    request: CallableRequest<unknown>
-  ): Promise<{ success: boolean; newAccessCode?: string; error?: string }> => {
+    request: CallableRequest<unknown>,
+  ): Promise<{
+    success: boolean;
+    newAccessCode?: string;
+    error?: string;
+  }> => {
     if (!request.auth) {
       throw new HttpsError(
         "unauthenticated",
-        "User must be authenticated to regenerate access code."
+        "User must be authenticated to regenerate access code.",
       );
     }
 
     const userId = request.auth.uid;
     logger.info(
-      `User ${userId} requesting to regenerate mechanic access code.`
+      `User ${userId} requesting to regenerate mechanic access code.`,
     );
 
     const plaintextAccessCode = generatePlaintextAccessCode();
+
     try {
       const hashedMechanicAccessCode = await bcrypt.hash(
         plaintextAccessCode,
-        SALT_ROUNDS
+        SALT_ROUNDS,
       );
 
       await db.collection("userProfiles").doc(userId).update({
@@ -191,7 +192,7 @@ export const regenerateMechanicAccessCode = onCall(
 
       logger.info(
         `Mechanic access code regenerated for user ${userId}. ` +
-          `New plaintext code (DEV ONLY): ${plaintextAccessCode}`
+          `New plaintext code (DEV ONLY): ${plaintextAccessCode}`,
       );
 
       return {
@@ -199,8 +200,14 @@ export const regenerateMechanicAccessCode = onCall(
         newAccessCode: plaintextAccessCode,
       };
     } catch (error) {
-      logger.error(`Error regenerating code for user ${userId}:`, error);
-      throw new HttpsError("internal", "Failed to regenerate access code.");
+      logger.error(
+        `Error regenerating code for user ${userId}:`,
+        error,
+      );
+      throw new HttpsError(
+        "internal",
+        "Failed to regenerate access code.",
+      );
     }
-  }
+  },
 );
