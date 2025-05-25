@@ -85,16 +85,20 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.voiceMemos = state.voiceMemos.filter((memo) => !(memo.vehicleId === vehicleId && memo.userId === userId));
       });
     },
-    getVehicleById: (vehicleId, userId) => { // Allow optional userId for filtering
-      const vehicle = get().vehicles.find((v) => v.id === vehicleId);
-      if (userId && vehicle?.userId !== userId) return undefined; // If userId provided, ensure it matches
+    getVehicleById: (vehicleId, userId) => { 
+      const vehicles = get().vehicles;
+      if (!Array.isArray(vehicles)) return undefined; 
+      const vehicle = vehicles.find((v) => v.id === vehicleId);
+      if (userId && vehicle?.userId !== userId) return undefined; 
       return vehicle;
     },
     getVehiclesByUserId: (userId) => {
-      return get().vehicles.filter((v) => v.userId === userId);
+      const vehicles = get().vehicles;
+      if (!Array.isArray(vehicles)) return []; // Defensive check
+      return vehicles.filter((v) => v.userId === userId);
     },
 
-    addMaintenanceLog: (newLog) => { // Server action provides full log
+    addMaintenanceLog: (newLog) => { 
       set((state) => {
         state.maintenanceLogs.push(newLog);
       });
@@ -112,12 +116,14 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.maintenanceLogs = state.maintenanceLogs.filter((log) => !(log.id === logId && log.userId === userId));
       });
     },
-    getMaintenanceLogsByVehicleId: (vehicleId, userId) => { // userId is now mandatory for scoping
-      return get().maintenanceLogs.filter((log) => log.vehicleId === vehicleId && log.userId === userId)
+    getMaintenanceLogsByVehicleId: (vehicleId, userId) => { 
+      const logs = get().maintenanceLogs;
+      if (!Array.isArray(logs)) return []; // Defensive check
+      return logs.filter((log) => log.vehicleId === vehicleId && log.userId === userId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
 
-    addRepairRecord: (newRecord) => { // Server action provides full record
+    addRepairRecord: (newRecord) => { 
       set((state) => {
         state.repairRecords.push(newRecord);
       });
@@ -135,12 +141,14 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.repairRecords = state.repairRecords.filter((record) => !(record.id === recordId && record.userId === userId));
       });
     },
-    getRepairRecordsByVehicleId: (vehicleId, userId) => { // userId is now mandatory
-      return get().repairRecords.filter((record) => record.vehicleId === vehicleId && record.userId === userId)
+    getRepairRecordsByVehicleId: (vehicleId, userId) => { 
+      const records = get().repairRecords;
+      if (!Array.isArray(records)) return []; // Defensive check
+      return records.filter((record) => record.vehicleId === vehicleId && record.userId === userId)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
     
-    addServiceReminder: (newReminder) => { // Server action provides full reminder
+    addServiceReminder: (newReminder) => { 
       set((state) => {
         state.serviceReminders.push(newReminder);
       });
@@ -158,11 +166,13 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.serviceReminders = state.serviceReminders.filter((r) => !(r.id === reminderId && r.userId === userId));
       });
     },
-    getServiceRemindersByVehicleId: (vehicleId, userId) => { // userId is now mandatory
-      return get().serviceReminders.filter((r) => r.vehicleId === vehicleId && r.userId === userId)
+    getServiceRemindersByVehicleId: (vehicleId, userId) => { 
+      const reminders = get().serviceReminders;
+      if (!Array.isArray(reminders)) return []; // Defensive check
+      return reminders.filter((r) => r.vehicleId === vehicleId && r.userId === userId)
         .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     },
-    toggleReminderCompletion: (reminderId, userId) => { // userId for scoping
+    toggleReminderCompletion: (reminderId, userId) => { 
       set((state) => {
         const index = state.serviceReminders.findIndex((r) => r.id === reminderId && r.userId === userId);
         if (index !== -1) {
@@ -171,7 +181,7 @@ export const useAutoBookStore = create<AutoBookState>()(
       });
     },
 
-    addDocument: (newDoc) => { // Server action provides full doc
+    addDocument: (newDoc) => { 
       set((state) => {
         state.documents.push(newDoc);
       });
@@ -181,12 +191,14 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.documents = state.documents.filter((doc) => !(doc.id === docId && doc.userId === userId));
       });
     },
-    getDocumentsByVehicleId: (vehicleId, userId) => { // userId is now mandatory
-      return get().documents.filter((doc) => doc.vehicleId === vehicleId && doc.userId === userId)
+    getDocumentsByVehicleId: (vehicleId, userId) => { 
+      const documents = get().documents;
+      if (!Array.isArray(documents)) return []; // Defensive check
+      return documents.filter((doc) => doc.vehicleId === vehicleId && doc.userId === userId)
         .sort((a,b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
     },
 
-    addVoiceMemo: (newMemo) => { // Server action provides full memo
+    addVoiceMemo: (newMemo) => { 
       set((state) => {
         state.voiceMemos.push(newMemo);
       });
@@ -196,8 +208,10 @@ export const useAutoBookStore = create<AutoBookState>()(
         state.voiceMemos = state.voiceMemos.filter((memo) => !(memo.id === memoId && memo.userId === userId));
       });
     },
-    getVoiceMemosByVehicleId: (vehicleId, userId) => { // userId is now mandatory
-      return get().voiceMemos.filter((memo) => memo.vehicleId === vehicleId && memo.userId === userId)
+    getVoiceMemosByVehicleId: (vehicleId, userId) => { 
+      const memos = get().voiceMemos;
+      if (!Array.isArray(memos)) return []; // Defensive check
+      return memos.filter((memo) => memo.vehicleId === vehicleId && memo.userId === userId)
         .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     },
   }))

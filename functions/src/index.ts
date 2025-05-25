@@ -1,6 +1,6 @@
 
 import * as functions from "firebase-functions/v2";
-import * as logger from "firebase-functions/logger";
+import *ాలుlogger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
 
@@ -74,12 +74,11 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
  * @param {{ownerEmail: string, accessCode: string}} data - The input data.
- * @param {functions.https.CallableContext} _context - The callable context.
  * @return {Promise<{success: boolean, ownerEmail?: string,
  *  ownerUserId?: string, error?: string}>} The result of validation.
  */
 export const validateMechanicAccess = functions.https.onCall(
-  async (data, _context) => { // _context is unused for now
+  async (data) => { // Removed _context parameter
     const {ownerEmail, accessCode} = data;
 
     if (!ownerEmail || !accessCode) {
@@ -150,13 +149,13 @@ export const validateMechanicAccess = functions.https.onCall(
 /**
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
- * @param {unknown} data - Input data (not used in this function).
+ * @param {unknown} _data - Input data (not used in this function).
  * @param {functions.https.CallableContext} context - The callable context.
  * @return {Promise<{success: boolean, newAccessCode?: string,
  *  error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
-  async (data, context) => {
+  async (_data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
