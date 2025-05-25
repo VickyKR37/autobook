@@ -1,6 +1,6 @@
 
-"use server"; // This directive is typically for Next.js server components, not Cloud Functions.
-// It's likely benign here but not standard for Cloud Functions.
+// This directive is for Next.js server components, not Cloud Functions.
+// It's benign here but not standard for Cloud Functions.
 
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
@@ -9,7 +9,7 @@ import type {UserRecord} from "firebase-admin/auth";
 import type {
   HttpsError,
   CallableContext,
-} from "firebase-functions/v1/https"; // For v1 onCall
+} from "firebase-functions/v1/https";
 
 admin.initializeApp();
 const db = admin.firestore();
