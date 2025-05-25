@@ -12,7 +12,7 @@ import {
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  type UserCreatedEvent,
+  UserCreatedEvent, // Removed 'type' keyword here
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -60,8 +60,8 @@ export const createUserProfileOnSignUp = onUserCreated(
 
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
       logger.info(
-        `User profile created for ${user.uid} with hashed access code. ` +
-        `Plaintext for DEV ONLY: ${plaintextAccessCode}`
+        "User profile created for " + user.uid + " with hashed access code.",
+        "Plaintext for DEV ONLY:", plaintextAccessCode
       );
     } catch (error) {
       logger.error(
@@ -77,8 +77,12 @@ export const createUserProfileOnSignUp = onUserCreated(
  * HTTP Callable function for mechanics to validate access to an owner's data.
  * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request
  * - The request object.
- * @returns {Promise<{success: boolean, ownerEmail?: string,
- * ownerUserId?: string, error?: string}>} Result.
+ * @returns {Promise<{
+ *  success: boolean,
+ *  ownerEmail?: string,
+ *  ownerUserId?: string,
+ *  error?: string
+ * }>} Result.
  */
 export const validateMechanicAccess = functions.https.onCall(
   async (
@@ -131,7 +135,7 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (isMatch) {
         logger.info(
-          `Mechanic access GRANTED for owner: ${ownerEmail} ` +
+          "Mechanic access GRANTED for owner: " + ownerEmail,
           `(User ID: ${userProfile.userId})`
         );
         return {
@@ -159,8 +163,11 @@ export const validateMechanicAccess = functions.https.onCall(
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
  * @param {CallableRequest<unknown>} request - The request object.
- * @returns {Promise<{success: boolean, newAccessCode?: string,
- * error?: string}>} Result.
+ * @returns {Promise<{
+ *  success: boolean,
+ *  newAccessCode?: string,
+ *  error?: string
+ * }>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
@@ -204,3 +211,5 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
     }
   }
 );
+
+    

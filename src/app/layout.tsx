@@ -30,7 +30,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       {/* <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}> // Temporarily commented out */}
       <body className="antialiased"> {/* Fallback basic body class */}
-        <AuthProvider> {/* AuthProvider wraps AppLayout and Toaster, crucial for auth context */}
+        {/* AuthProvider wraps AppLayout and Toaster, crucial for auth context */}
+        <AuthProvider> 
           <AppLayout>
             {children}
           </AppLayout>
