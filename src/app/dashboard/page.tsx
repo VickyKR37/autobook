@@ -14,46 +14,28 @@ import { useAuth } from '@/context/auth-provider';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, isLoading: authIsLoading, mechanicTargetUser, isMechanicSession, effectiveUserId } = useAuth();
+  const { user, isLoading: authIsLoading, isMechanicSession, mechanicTargetUser, effectiveUserId } = useAuth();
   
-  // Fetch all vehicles and then filter, or use a selector that accepts userId if store is updated
-  const allVehicles = useAutoBookStore((state) => state.vehicles);
+  const getVehiclesByActiveUser = useAutoBookStore((state) => state.getVehiclesByUserId);
   const [displayedVehicles, setDisplayedVehicles] = useState<Vehicle[]>([]);
 
   useEffect(() => {
     if (!authIsLoading) {
-      if (!user && !isMechanicSession) {
+      if (!effectiveUserId) { // No regular user and no mechanic session target
         router.replace('/login');
       } else {
-        if (isMechanicSession && mechanicTargetUser) {
-          // Filter vehicles for the target owner based on email (contactDetails) or userId if available
-          // This assumes vehicle.contactDetails is the owner's email or vehicle.userId is populated
-          setDisplayedVehicles(allVehicles.filter(v => v.userId === mechanicTargetUser.userId || v.contactDetails === mechanicTargetUser.email));
-        } else if (user) {
-          // Filter vehicles for the logged-in user
-          setDisplayedVehicles(allVehicles.filter(v => v.userId === user.uid));
-        } else {
-          setDisplayedVehicles([]); // Should not happen if redirects are correct
-        }
+        // Fetch vehicles based on the effectiveUserId (either logged-in user or mechanic's target)
+        setDisplayedVehicles(getVehiclesByActiveUser(effectiveUserId));
       }
     }
-  }, [user, authIsLoading, isMechanicSession, mechanicTargetUser, router, allVehicles]);
+  }, [authIsLoading, effectiveUserId, router, getVehiclesByActiveUser]);
 
 
-  if (authIsLoading) {
+  if (authIsLoading || (!effectiveUserId && !authIsLoading)) { // Show loader if auth is loading OR if not loading but no effective user (implies redirect is pending)
     return (
       <div className="flex h-full flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Loading Dashboard...</p>
-      </div>
-    );
-  }
-
-  if (!user && !isMechanicSession) {
-    return (
-       <div className="flex h-full flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Redirecting...</p>
       </div>
     );
   }
@@ -66,11 +48,11 @@ export default function DashboardPage() {
           {isMechanicSession && mechanicTargetUser && (
             <p className="text-md text-muted-foreground flex items-center">
               <UserCog className="mr-2 h-5 w-5 text-accent" />
-              Accessing data for: {mechanicTargetUser.email}
+              Accessing data for: {mechanicTargetUser.email} (ID: {mechanicTargetUser.userId || 'N/A'})
             </p>
           )}
         </div>
-        {!isMechanicSession && user && ( // Only show "Add New Vehicle" if it's a regular user session
+        {!isMechanicSession && user && ( 
           <Link href="/vehicles/add" passHref>
             <Button>
               <PlusCircle className="mr-2 h-5 w-5" />

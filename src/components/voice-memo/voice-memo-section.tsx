@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,9 +8,10 @@ import VoiceMemoRecorder from './voice-memo-recorder';
 import VoiceMemoListItem from './voice-memo-list-item';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Mic, Info } from 'lucide-react';
+import { PlusCircle, Mic, Info, Loader2 } from 'lucide-react';
 import { addVoiceMemoAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import {
   Accordion,
   AccordionContent,
@@ -23,24 +25,33 @@ interface VoiceMemoSectionProps {
 
 export default function VoiceMemoSection({ vehicleId }: VoiceMemoSectionProps) {
   const { toast } = useToast();
+  const { effectiveUserId, isLoading: authIsLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const memos = useAutoBookStore((state) => state.getVoiceMemosByVehicleId(vehicleId));
+  const getMemosFromStore = useAutoBookStore((state) => state.getVoiceMemosByVehicleId);
   const addMemoToStore = useAutoBookStore((state) => state.addVoiceMemo);
   const deleteMemoFromStore = useAutoBookStore((state) => state.deleteVoiceMemo);
-  const [mounted, setMounted] = useState(false);
+  
+  const [memos, setMemos] = useState<VoiceMemoType[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (effectiveUserId && !authIsLoading) {
+      setMemos(getMemosFromStore(vehicleId, effectiveUserId));
+    }
+  }, [vehicleId, effectiveUserId, authIsLoading, getMemosFromStore, useAutoBookStore.getState().voiceMemos]);
 
 
-  const handleAddMemo = async (data: Omit<VoiceMemoType, 'id' | 'createdAt' | 'vehicleId' | 'audioUrl'> & { vehicleId: string; fileName?: string }) => {
+  const handleAddMemo = async (data: Omit<VoiceMemoType, 'id' | 'createdAt' | 'vehicleId' | 'audioUrl' | 'userId'> & { fileName?: string }) => {
+     if (!effectiveUserId) {
+        toast({ title: "Error", description: "User context unavailable.", variant: "destructive"});
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const newMemo = await addVoiceMemoAction(data);
+      const memoDataForAction = { ...data, vehicleId, userId: effectiveUserId };
+      const newMemo = await addVoiceMemoAction(memoDataForAction);
       addMemoToStore(newMemo);
       toast({ title: 'Voice Memo Saved', description: `"${data.title}" saved successfully.` });
       setShowForm(false);
@@ -52,25 +63,22 @@ export default function VoiceMemoSection({ vehicleId }: VoiceMemoSectionProps) {
   };
 
   const handleDeleteMemo = (memoId: string) => {
+    if (!effectiveUserId) return;
     setIsDeleting(memoId);
-    deleteMemoFromStore(memoId); // Client-side only for now
+    deleteMemoFromStore(memoId, effectiveUserId); 
     toast({ title: 'Voice Memo Deleted', description: 'Memo removed successfully.' });
     setIsDeleting(null);
   };
   
-  if (!mounted) {
+  if (authIsLoading || !effectiveUserId) {
      return (
       <Card>
         <CardHeader>
           <CardTitle>Voice Memos</CardTitle>
           <CardDescription>Loading voice memos...</CardDescription>
         </CardHeader>
-        <CardContent className="animate-pulse">
-          <div className="h-10 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-24 bg-muted rounded"></div>
-            <div className="h-24 bg-muted rounded"></div>
-          </div>
+        <CardContent className="animate-pulse flex items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );

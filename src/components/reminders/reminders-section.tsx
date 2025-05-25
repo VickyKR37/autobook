@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,9 +8,10 @@ import ServiceReminderForm from './service-reminder-form';
 import ReminderListItem from './reminder-list-item';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, CalendarCheck2, Info } from 'lucide-react';
+import { PlusCircle, CalendarCheck2, Info, Loader2 } from 'lucide-react';
 import { addServiceReminderAction, toggleServiceReminderAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import {
   Accordion,
   AccordionContent,
@@ -23,26 +25,35 @@ interface RemindersSectionProps {
 
 export default function RemindersSection({ vehicleId }: RemindersSectionProps) {
   const { toast } = useToast();
+  const { effectiveUserId, isLoading: authIsLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isToggling, setIsToggling] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const reminders = useAutoBookStore((state) => state.getServiceRemindersByVehicleId(vehicleId));
+  const getRemindersFromStore = useAutoBookStore((state) => state.getServiceRemindersByVehicleId);
   const addReminderToStore = useAutoBookStore((state) => state.addServiceReminder);
   const deleteReminderFromStore = useAutoBookStore((state) => state.deleteServiceReminder);
   const toggleReminderCompletionInStore = useAutoBookStore((state) => state.toggleReminderCompletion);
-  const [mounted, setMounted] = useState(false);
+  
+  const [reminders, setReminders] = useState<ReminderType[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (effectiveUserId && !authIsLoading) {
+      setReminders(getRemindersFromStore(vehicleId, effectiveUserId));
+    }
+  }, [vehicleId, effectiveUserId, authIsLoading, getRemindersFromStore, useAutoBookStore.getState().serviceReminders]);
 
 
-  const handleAddReminder = async (data: Omit<ReminderType, 'id' | 'createdAt' | 'vehicleId' | 'isCompleted'>) => {
+  const handleAddReminder = async (data: Omit<ReminderType, 'id' | 'createdAt' | 'vehicleId' | 'isCompleted' | 'userId'>) => {
+    if(!effectiveUserId) {
+        toast({ title: "Error", description: "User context unavailable.", variant: "destructive"});
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const newReminder = await addServiceReminderAction(data);
+      const reminderDataForAction = { ...data, vehicleId, userId: effectiveUserId };
+      const newReminder = await addServiceReminderAction(reminderDataForAction);
       addReminderToStore(newReminder);
       toast({ title: 'Reminder Added', description: `Reminder for "${data.type}" set successfully.` });
       setShowForm(false);
@@ -54,10 +65,11 @@ export default function RemindersSection({ vehicleId }: RemindersSectionProps) {
   };
 
   const handleToggleComplete = async (reminderId: string, completed: boolean) => {
+    if(!effectiveUserId) return;
     setIsToggling(reminderId);
     try {
-      await toggleServiceReminderAction(reminderId, vehicleId, completed); // server action
-      toggleReminderCompletionInStore(reminderId); // client store
+      await toggleServiceReminderAction(reminderId, vehicleId, completed, effectiveUserId); // server action
+      toggleReminderCompletionInStore(reminderId, effectiveUserId); // client store
       toast({ title: 'Reminder Updated', description: `Reminder marked as ${completed ? 'complete' : 'incomplete'}.` });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to update reminder status.', variant: 'destructive' });
@@ -67,26 +79,23 @@ export default function RemindersSection({ vehicleId }: RemindersSectionProps) {
   };
 
   const handleDeleteReminder = (reminderId: string) => {
+    if(!effectiveUserId) return;
     setIsDeleting(reminderId);
-    // For now, client-side only deletion
-    deleteReminderFromStore(reminderId);
+    // For now, client-side only deletion, ensure scoped by userId
+    deleteReminderFromStore(reminderId, effectiveUserId);
     toast({ title: 'Reminder Deleted', description: 'Reminder removed successfully.' });
     setIsDeleting(null);
   };
 
-  if (!mounted) {
+  if (authIsLoading || !effectiveUserId) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Service Reminders</CardTitle>
           <CardDescription>Loading reminders...</CardDescription>
         </CardHeader>
-        <CardContent className="animate-pulse">
-          <div className="h-10 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="space-y-4">
-            <div className="h-20 bg-muted rounded"></div>
-            <div className="h-20 bg-muted rounded"></div>
-          </div>
+        <CardContent className="animate-pulse flex items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );

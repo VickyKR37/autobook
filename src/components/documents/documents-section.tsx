@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,9 +8,10 @@ import DocumentUploadForm from './document-upload-form';
 import DocumentListItem from './document-list-item';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, FileArchive, Info } from 'lucide-react';
+import { PlusCircle, FileArchive, Info, Loader2 } from 'lucide-react';
 import { addDocumentAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import {
   Accordion,
   AccordionContent,
@@ -23,32 +25,33 @@ interface DocumentsSectionProps {
 
 export default function DocumentsSection({ vehicleId }: DocumentsSectionProps) {
   const { toast } = useToast();
+  const { effectiveUserId, isLoading: authIsLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const documents = useAutoBookStore((state) => state.getDocumentsByVehicleId(vehicleId));
+  const getDocumentsFromStore = useAutoBookStore((state) => state.getDocumentsByVehicleId);
   const addDocumentToStore = useAutoBookStore((state) => state.addDocument);
   const deleteDocumentFromStore = useAutoBookStore((state) => state.deleteDocument);
-  const [mounted, setMounted] = useState(false);
+  
+  const [documents, setDocuments] = useState<DocumentType[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (effectiveUserId && !authIsLoading) {
+      setDocuments(getDocumentsFromStore(vehicleId, effectiveUserId));
+    }
+  }, [vehicleId, effectiveUserId, authIsLoading, getDocumentsFromStore, useAutoBookStore.getState().documents]);
 
 
-  const handleAddDocument = async (data: Omit<DocumentType, 'id' | 'createdAt' | 'uploadDate' | 'vehicleId' | 'fileUrl'> & { vehicleId: string; fileName: string; file: File }) => {
+  const handleAddDocument = async (data: Omit<DocumentType, 'id' | 'createdAt' | 'uploadDate' | 'vehicleId' | 'fileUrl' | 'userId'> & { fileName: string; file: File }) => {
+    if (!effectiveUserId) {
+        toast({ title: "Error", description: "User context unavailable.", variant: "destructive"});
+        return;
+    }
     setIsSubmitting(true);
     try {
-      // The file itself is in `data.file`. The action needs to handle it.
-      // For this scaffold, `addDocumentAction` will just simulate and create a placeholder URL.
-      const newDocument = await addDocumentAction({
-        name: data.name,
-        type: data.type,
-        vehicleId: data.vehicleId,
-        fileName: data.fileName,
-        // uploadDate is set by the action/store
-      });
+      const docDataForAction = { ...data, vehicleId, userId: effectiveUserId };
+      const newDocument = await addDocumentAction(docDataForAction);
       addDocumentToStore(newDocument);
       toast({ title: 'Document Uploaded', description: `"${data.name}" uploaded successfully.` });
       setShowForm(false);
@@ -60,25 +63,22 @@ export default function DocumentsSection({ vehicleId }: DocumentsSectionProps) {
   };
 
   const handleDeleteDocument = (docId: string) => {
+    if (!effectiveUserId) return;
     setIsDeleting(docId);
-    deleteDocumentFromStore(docId); // Client-side only for now
+    deleteDocumentFromStore(docId, effectiveUserId); 
     toast({ title: 'Document Deleted', description: 'Document removed successfully.' });
     setIsDeleting(null);
   };
   
-  if (!mounted) {
+  if (authIsLoading || !effectiveUserId) {
      return (
       <Card>
         <CardHeader>
           <CardTitle>Documents</CardTitle>
           <CardDescription>Loading documents...</CardDescription>
         </CardHeader>
-        <CardContent className="animate-pulse">
-          <div className="h-10 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-16 bg-muted rounded"></div>
-            <div className="h-16 bg-muted rounded"></div>
-          </div>
+        <CardContent className="animate-pulse flex items-center justify-center py-10">
+           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );

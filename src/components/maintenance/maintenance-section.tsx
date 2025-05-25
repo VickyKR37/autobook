@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,9 +8,10 @@ import MaintenanceLogForm from './maintenance-log-form';
 import MaintenanceListItem from './maintenance-list-item';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Wrench, Info } from 'lucide-react';
-import { addMaintenanceLogAction } from '@/lib/actions'; // Assuming similar action exists
+import { PlusCircle, Wrench, Info, Loader2 } from 'lucide-react';
+import { addMaintenanceLogAction } from '@/lib/actions'; 
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import {
   Accordion,
   AccordionContent,
@@ -23,27 +25,36 @@ interface MaintenanceSectionProps {
 
 export default function MaintenanceSection({ vehicleId }: MaintenanceSectionProps) {
   const { toast } = useToast();
+  const { effectiveUserId, isLoading: authIsLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null); // Store ID of log being deleted
+  const [isDeleting, setIsDeleting] = useState<string | null>(null); 
   const [showForm, setShowForm] = useState(false);
 
-  const logs = useAutoBookStore((state) => state.getMaintenanceLogsByVehicleId(vehicleId));
+  const getLogsFromStore = useAutoBookStore((state) => state.getMaintenanceLogsByVehicleId);
   const addLogToStore = useAutoBookStore((state) => state.addMaintenanceLog);
   const deleteLogFromStore = useAutoBookStore((state) => state.deleteMaintenanceLog);
-  const [mounted, setMounted] = useState(false);
+  
+  const [logs, setLogs] = useState<MaintenanceLogType[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (effectiveUserId && !authIsLoading) {
+      setLogs(getLogsFromStore(vehicleId, effectiveUserId));
+    }
+  }, [vehicleId, effectiveUserId, authIsLoading, getLogsFromStore, useAutoBookStore.getState().maintenanceLogs]); // Re-run if global logs change too
 
 
-  const handleAddLog = async (data: Omit<MaintenanceLogType, 'id' | 'createdAt'>) => {
+  const handleAddLog = async (data: Omit<MaintenanceLogType, 'id' | 'createdAt' | 'vehicleId' | 'userId'>) => {
+    if (!effectiveUserId) {
+        toast({ title: "Error", description: "User context unavailable.", variant: "destructive"});
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const newLog = await addMaintenanceLogAction(data); // Server action
-      addLogToStore(newLog); // Update client store
+      const logDataForAction = { ...data, vehicleId, userId: effectiveUserId };
+      const newLog = await addMaintenanceLogAction(logDataForAction); 
+      addLogToStore(newLog); 
       toast({ title: 'Maintenance Log Added', description: `${data.type} recorded successfully.` });
-      setShowForm(false); // Hide form after successful submission
+      setShowForm(false); 
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to add maintenance log.', variant: 'destructive' });
     } finally {
@@ -52,11 +63,11 @@ export default function MaintenanceSection({ vehicleId }: MaintenanceSectionProp
   };
 
   const handleDeleteLog = async (logId: string) => {
+    if (!effectiveUserId) return;
     setIsDeleting(logId);
     try {
-      // Simulate server action for deletion
-      // await deleteMaintenanceLogAction(logId); // If you implement this
-      deleteLogFromStore(logId); // Update client store
+      // await deleteMaintenanceLogServerAction(logId, effectiveUserId); // If implementing server-side delete
+      deleteLogFromStore(logId, effectiveUserId); 
       toast({ title: 'Maintenance Log Deleted', description: 'Log removed successfully.' });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to delete maintenance log.', variant: 'destructive' });
@@ -65,19 +76,15 @@ export default function MaintenanceSection({ vehicleId }: MaintenanceSectionProp
     }
   };
   
-  if (!mounted) {
+  if (authIsLoading || !effectiveUserId) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Maintenance History</CardTitle>
           <CardDescription>Loading maintenance records...</CardDescription>
         </CardHeader>
-        <CardContent className="animate-pulse">
-          <div className="h-10 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="space-y-4">
-            <div className="h-24 bg-muted rounded"></div>
-            <div className="h-24 bg-muted rounded"></div>
-          </div>
+        <CardContent className="animate-pulse flex items-center justify-center py-10">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );
@@ -104,7 +111,7 @@ export default function MaintenanceSection({ vehicleId }: MaintenanceSectionProp
               <AccordionTrigger className="text-lg font-semibold">New Maintenance Log Form</AccordionTrigger>
               <AccordionContent>
                 <MaintenanceLogForm
-                  vehicleId={vehicleId}
+                  vehicleId={vehicleId} // Passed for context, though userId will be primary key for data
                   onSubmit={handleAddLog}
                   isSubmitting={isSubmitting}
                   onCancel={() => setShowForm(false)}

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,9 +8,10 @@ import RepairRecordForm from './repair-history-form';
 import RepairListItem from './repair-list-item';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Tool, Info } from 'lucide-react';
+import { PlusCircle, Tool, Info, Loader2 } from 'lucide-react';
 import { addRepairRecordAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/auth-provider';
 import {
   Accordion,
   AccordionContent,
@@ -23,23 +25,33 @@ interface RepairSectionProps {
 
 export default function RepairSection({ vehicleId }: RepairSectionProps) {
   const { toast } = useToast();
+  const { effectiveUserId, isLoading: authIsLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const records = useAutoBookStore((state) => state.getRepairRecordsByVehicleId(vehicleId));
+  const getRecordsFromStore = useAutoBookStore((state) => state.getRepairRecordsByVehicleId);
   const addRecordToStore = useAutoBookStore((state) => state.addRepairRecord);
   const deleteRecordFromStore = useAutoBookStore((state) => state.deleteRepairRecord);
-  const [mounted, setMounted] = useState(false);
+  
+  const [records, setRecords] = useState<RepairRecordType[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (effectiveUserId && !authIsLoading) {
+      setRecords(getRecordsFromStore(vehicleId, effectiveUserId));
+    }
+  }, [vehicleId, effectiveUserId, authIsLoading, getRecordsFromStore, useAutoBookStore.getState().repairRecords]);
 
-  const handleAddRecord = async (data: Omit<RepairRecordType, 'id' | 'createdAt' | 'vehicleId'>) => {
+
+  const handleAddRecord = async (data: Omit<RepairRecordType, 'id' | 'createdAt' | 'vehicleId' | 'userId'>) => {
+    if(!effectiveUserId) {
+        toast({ title: "Error", description: "User context unavailable.", variant: "destructive"});
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const newRecord = await addRepairRecordAction(data);
+      const recordDataForAction = { ...data, vehicleId, userId: effectiveUserId };
+      const newRecord = await addRepairRecordAction(recordDataForAction);
       addRecordToStore(newRecord);
       toast({ title: 'Repair Record Added', description: `Repair for "${data.issue}" recorded successfully.` });
       setShowForm(false);
@@ -51,10 +63,11 @@ export default function RepairSection({ vehicleId }: RepairSectionProps) {
   };
 
   const handleDeleteRecord = async (recordId: string) => {
+    if(!effectiveUserId) return;
     setIsDeleting(recordId);
     try {
-      // await deleteRepairRecordAction(recordId); // If implemented
-      deleteRecordFromStore(recordId);
+      // await deleteRepairRecordServerAction(recordId, effectiveUserId); // If implemented
+      deleteRecordFromStore(recordId, effectiveUserId);
       toast({ title: 'Repair Record Deleted', description: 'Record removed successfully.' });
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to delete repair record.', variant: 'destructive' });
@@ -63,19 +76,15 @@ export default function RepairSection({ vehicleId }: RepairSectionProps) {
     }
   };
 
-  if (!mounted) {
+  if (authIsLoading || !effectiveUserId) {
      return (
       <Card>
         <CardHeader>
           <CardTitle>Repair History & Diagnostics</CardTitle>
           <CardDescription>Loading repair records...</CardDescription>
         </CardHeader>
-        <CardContent className="animate-pulse">
-          <div className="h-10 bg-muted rounded w-1/4 mb-4"></div>
-          <div className="space-y-4">
-            <div className="h-32 bg-muted rounded"></div>
-            <div className="h-32 bg-muted rounded"></div>
-          </div>
+        <CardContent className="animate-pulse flex items-center justify-center py-10">
+             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </CardContent>
       </Card>
     );

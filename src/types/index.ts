@@ -1,7 +1,7 @@
 
 export interface Vehicle {
   id: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - MAndatory
   ownerName: string;
   contactDetails: string; // Used as owner's email for mechanic login
   make: string;
@@ -30,7 +30,7 @@ export interface Vehicle {
   insuranceRenewalDate?: string; // ISO date string
   breakdownCoverProvider?: string;
   breakdownCoverPolicyNumber?: string;
-  mechanicAccessCode?: string; // Placeholder for mechanic access
+  mechanicAccessCode: string; // Securely generated access code for mechanics
   createdAt: string; // ISO date string
   updatedAt: string; // ISO date string
 }
@@ -38,7 +38,7 @@ export interface Vehicle {
 export interface MaintenanceLog {
   id: string;
   vehicleId: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   date: string; // ISO date string
   mileage: number;
   type: string; // e.g., "Oil Change", "Tire Rotation"
@@ -52,7 +52,7 @@ export interface MaintenanceLog {
 export interface RepairRecord {
   id: string;
   vehicleId: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   date: string; // ISO date string
   mileage: number;
   issue: string;
@@ -68,7 +68,7 @@ export interface RepairRecord {
 export interface ServiceReminder {
   id: string;
   vehicleId: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   type: string; // e.g., "MOT Due", "Next Service", "Warranty Expiration"
   dueDate: string; // ISO date string
   notes?: string;
@@ -79,7 +79,7 @@ export interface ServiceReminder {
 export interface Document {
   id: string;
   vehicleId: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   name: string;
   type: 'Insurance Certificate' | 'Logbook/V5' | 'MOT Certificate' | 'Service Book Scan' | 'Invoice/Receipt' | 'Warranty Document' | 'Other';
   uploadDate: string; // ISO date string
@@ -91,7 +91,7 @@ export interface Document {
 export interface VoiceMemo {
   id: string;
   vehicleId: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   title: string;
   date: string; // ISO date string
   transcription?: string;
@@ -102,7 +102,7 @@ export interface VoiceMemo {
 
 export interface MOTRecord {
   id:string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   date: string; // ISO date string
   mileage: number;
   result: 'Pass' | 'Fail' | 'Advisory';
@@ -112,7 +112,7 @@ export interface MOTRecord {
 
 export interface FuelLog {
   id: string;
-  userId?: string; // Firebase UID of the owner
+  userId: string; // Firebase UID of the owner - Mandatory
   date: string; // ISO date string
   mileage: number;
   liters: number;

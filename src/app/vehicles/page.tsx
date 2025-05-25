@@ -7,42 +7,37 @@ import { Button } from '@/components/ui/button';
 import VehicleCard from '@/components/vehicles/vehicle-card';
 import type { Vehicle } from '@/types';
 import { useAutoBookStore } from '@/lib/store';
-import { PlusCircle, Car, UserCog } from 'lucide-react';
+import { PlusCircle, Car, UserCog, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-provider';
+import { useRouter } from 'next/navigation';
 
 
 export default function VehiclesPage() {
-  const { user, isMechanicSession, mechanicTargetUser, effectiveUserId } = useAuth();
-  const allVehiclesFromStore = useAutoBookStore((state) => state.vehicles);
+  const router = useRouter();
+  const { user, isLoading: authIsLoading, isMechanicSession, mechanicTargetUser, effectiveUserId } = useAuth();
+  const getVehiclesByActiveUser = useAutoBookStore((state) => state.getVehiclesByUserId);
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [mounted, setMounted] = useState(false);
-  const [userVehicles, setUserVehicles] = useState<Vehicle[]>([]);
+  const [displayedVehicles, setDisplayedVehicles] = useState<Vehicle[]>([]);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMechanicSession && mechanicTargetUser) {
-      // Filter vehicles for the target owner based on email (contactDetails) or userId if available
-       setUserVehicles(allVehiclesFromStore.filter(v => v.userId === mechanicTargetUser.userId || v.contactDetails === mechanicTargetUser.email));
-    } else if (user) {
-      // Filter vehicles for the logged-in user
-      setUserVehicles(allVehiclesFromStore.filter(v => v.userId === user.uid));
-    } else {
-      setUserVehicles([]);
+    if (!authIsLoading) {
+      if (!effectiveUserId) {
+         router.replace('/login'); // Should be caught by AuthProvider or page higher up mostly
+      } else {
+        setDisplayedVehicles(getVehiclesByActiveUser(effectiveUserId));
+      }
     }
-  }, [allVehiclesFromStore, user, isMechanicSession, mechanicTargetUser]);
+  }, [authIsLoading, effectiveUserId, router, getVehiclesByActiveUser]);
   
-  const filteredVehicles = userVehicles.filter(vehicle =>
+  const filteredVehicles = displayedVehicles.filter(vehicle =>
     `${vehicle.make} ${vehicle.model} ${vehicle.vin} ${vehicle.licensePlate}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!mounted) {
+  if (authIsLoading || (!effectiveUserId && !authIsLoading)) {
      return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -53,12 +48,8 @@ export default function VehiclesPage() {
             <CardTitle>Loading Vehicles...</CardTitle>
             <CardDescription>Please wait while we fetch your vehicle data.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid animate-pulse gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {[1,2,3,4,5,6].map(i => (
-                <Card key={i} className="h-48 bg-muted"></Card>
-              ))}
-            </div>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
           </CardContent>
         </Card>
       </div>
@@ -75,7 +66,7 @@ export default function VehiclesPage() {
           {isMechanicSession && mechanicTargetUser && (
              <p className="text-md text-muted-foreground flex items-center">
               <UserCog className="mr-2 h-5 w-5 text-accent" />
-              Accessing data for: {mechanicTargetUser.email}
+              Accessing data for: {mechanicTargetUser.email} (ID: {mechanicTargetUser.userId || 'N/A'})
             </p>
           )}
         </div>

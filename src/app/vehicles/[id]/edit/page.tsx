@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -8,15 +9,17 @@ import type { Vehicle } from '@/types';
 import { useAutoBookStore } from '@/lib/store';
 import { updateVehicleAction } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { Car } from 'lucide-react';
+import { Car, UserCog } from 'lucide-react';
+import { useAuth } from '@/context/auth-provider';
 
 export default function EditVehiclePage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
   const vehicleId = params.id as string;
+  const { effectiveUserId, isMechanicSession, mechanicTargetUser } = useAuth();
 
-  const getVehicleById = useAutoBookStore((state) => state.getVehicleById);
+  const getVehicleByIdStore = useAutoBookStore((state) => state.getVehicleById);
   const storeUpdateVehicle = useAutoBookStore((state) => state.updateVehicle);
   
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
@@ -24,26 +27,32 @@ export default function EditVehiclePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (vehicleId) {
-      const foundVehicle = getVehicleById(vehicleId);
+    if (vehicleId && effectiveUserId) {
+      const foundVehicle = getVehicleByIdStore(vehicleId, effectiveUserId); // Pass effectiveUserId for scoped fetch
       if (foundVehicle) {
         setVehicle(foundVehicle);
       } else {
-        toast({ title: "Error", description: "Vehicle not found.", variant: "destructive" });
+        toast({ title: "Error", description: "Vehicle not found or you don't have access.", variant: "destructive" });
         router.push('/vehicles');
       }
       setIsLoading(false);
+    } else if (!effectiveUserId && !isLoading) { // If effectiveUserId is not yet available but not loading
+        router.push('/login'); // Or a more appropriate redirect
     }
-  }, [vehicleId, getVehicleById, router, toast]);
+  }, [vehicleId, effectiveUserId, getVehicleByIdStore, router, toast, isLoading]);
 
   const handleSubmit = async (data: VehicleFormValues) => {
-    if (!vehicle) return;
+    if (!vehicle || !effectiveUserId) {
+        toast({ title: "Error", description: "Cannot update vehicle. Missing context.", variant: "destructive" });
+        setIsSubmitting(false);
+        return;
+    }
     setIsSubmitting(true);
     try {
-      const vehicleDataToUpdate: Partial<Vehicle> & { id: string } = {
+      const vehicleDataToUpdate: Partial<Vehicle> & { id: string; userId: string } = {
         id: vehicle.id,
+        userId: effectiveUserId, // Crucial for ensuring update is for the correct user context
         ...data,
-        // Ensure dates are in ISO format if they are simple date strings from form
         purchaseDate: data.purchaseDate ? new Date(data.purchaseDate).toISOString() : undefined,
         taxDueDate: data.taxDueDate ? new Date(data.taxDueDate).toISOString() : undefined,
         insuranceRenewalDate: data.insuranceRenewalDate ? new Date(data.insuranceRenewalDate).toISOString() : undefined,
@@ -64,11 +73,12 @@ export default function EditVehiclePage() {
         description: 'Failed to update vehicle. Please try again.',
         variant: 'destructive',
       });
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !effectiveUserId) {
     return (
       <div className="flex items-center justify-center h-full">
         <Car className="h-12 w-12 animate-pulse text-primary" />
@@ -78,14 +88,18 @@ export default function EditVehiclePage() {
   }
 
   if (!vehicle) {
-    // This case should ideally be handled by the redirect in useEffect,
-    // but as a fallback:
-    return <p>Vehicle not found.</p>;
+    return <p>Vehicle not found or access denied.</p>;
   }
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Edit Vehicle: {vehicle.make} {vehicle.model}</h1>
+      {isMechanicSession && mechanicTargetUser && (
+        <p className="text-md text-muted-foreground flex items-center">
+          <UserCog className="mr-2 h-5 w-5 text-accent" />
+          Editing data for: {mechanicTargetUser.email}
+        </p>
+      )}
       <VehicleForm initialData={vehicle} onSubmit={handleSubmit} isSubmitting={isSubmitting} />
     </div>
   );
