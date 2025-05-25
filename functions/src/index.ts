@@ -1,8 +1,10 @@
 
 import * as functions from "firebase-functions/v2";
-import *ాలుlogger from "firebase-functions/logger";
+import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
+import type { UserRecord } from "firebase-functions/v2/auth"; // For typing auth trigger user
+import type { CallableRequest, HttpsError } from "firebase-functions/v2/https"; // For typing callable context and request data
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -22,7 +24,7 @@ const generatePlaintextAccessCode = (): string => {
  * access code.
  */
 export const createUserProfileOnSignUp = functions.auth.user().onCreate(
-  async (user) => {
+  async (user: UserRecord) => {
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
     if (!user.email) {
       logger.error(
@@ -78,7 +80,7 @@ export const createUserProfileOnSignUp = functions.auth.user().onCreate(
  *  ownerUserId?: string, error?: string}>} The result of validation.
  */
 export const validateMechanicAccess = functions.https.onCall(
-  async (data) => { // Removed _context parameter
+  async (data: { ownerEmail: string; accessCode: string }): Promise<{success: boolean; ownerEmail?: string; ownerUserId?: string; error?: string}> => {
     const {ownerEmail, accessCode} = data;
 
     if (!ownerEmail || !accessCode) {
@@ -155,7 +157,7 @@ export const validateMechanicAccess = functions.https.onCall(
  *  error?: string}>} Result.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
-  async (_data, context) => {
+  async (_data: unknown, context: functions.https.CallableContext): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!context.auth) {
       throw new functions.https.HttpsError(
         "unauthenticated",
