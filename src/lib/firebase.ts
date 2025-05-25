@@ -24,38 +24,36 @@ const firebaseConfig = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
 };
 
-
-
 // Initialize Firebase
 const app: FirebaseApp = initializeApp(firebaseConfig);
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const database: Database = getDatabase(app);
-const storage: FirebaseStorage = getStorage(app);
-const functions: Functions = getFunctions(app); // Initialize Firebase Functions
+const storage: FirebaseStorage = getStorage(app); // Ensure Firebase Storage is enabled in the Firebase console for your project.
+const functions: Functions = getFunctions(app);
 
 // Initialize services that are typically client-side or depend on browser environment
 let analytics: Analytics | null = null;
-let performance: FirebasePerformance | null = null;
-let messaging: Messaging | null = null;
-let remoteConfig: RemoteConfig | null = null;
+let performanceSvc: FirebasePerformance | null = null; // Renamed to avoid conflict with window.performance
+let messagingSvc: Messaging | null = null; // Renamed to avoid potential conflicts
+let remoteConfigSvc: RemoteConfig | null = null; // Renamed
 
 if (typeof window !== 'undefined') {
   isSupported().then(supported => {
     if (supported) {
       analytics = getAnalytics(app);
       try {
-        performance = getPerformance(app);
+        performanceSvc = getPerformance(app);
       } catch (err) {
         console.log('Failed to initialize Firebase Performance', err);
       }
       try {
-        messaging = getMessaging(app);
+        messagingSvc = getMessaging(app);
       } catch (err) {
         console.log('Failed to initialize Firebase Messaging', err);
       }
       try {
-        remoteConfig = getRemoteConfig(app);
+        remoteConfigSvc = getRemoteConfig(app);
         // You might want to set default Remote Config values and activate it here
         // For example:
         // remoteConfig.defaultConfig = { "welcome_message": "Hello" };
@@ -71,4 +69,4 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { app, auth, db, database, storage, analytics, functions, performance, messaging, remoteConfig };
+export { app, auth, db, database, storage, analytics, functions, performanceSvc as performance, messagingSvc as messaging, remoteConfigSvc as remoteConfig };
