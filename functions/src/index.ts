@@ -1,19 +1,20 @@
 
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
+// AdminUserRecord was unused, UserCreatedEvent (if resolved) types event.data
+// import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
 import * as bcrypt from "bcrypt";
 
 import {
   HttpsError,
   CallableRequest,
-  onCall, // Import v2 onCall
+  onCall,
 } from "firebase-functions/v2/https";
 
 import { setGlobalOptions } from "firebase-functions/v2";
 import {
   onUserCreated,
-  type UserCreatedEvent,
+  type UserCreatedEvent, // 'type' keyword ensures it's a type import
 } from "firebase-functions/v2/identity";
 
 setGlobalOptions({ region: "europe-west1" });
@@ -81,7 +82,6 @@ export const createUserProfileOnSignUp = onUserCreated(
   },
 );
 
-// v2 onCall function
 export const validateMechanicAccess = onCall(
   async (
     request: CallableRequest<{ ownerEmail: string; accessCode: string }>,
@@ -120,7 +120,7 @@ export const validateMechanicAccess = onCall(
       }
 
       const userProfileDoc = profileQuery.docs[0];
-      const userProfile = userProfileDoc.data() as any; // Cast to any or define UserProfile type
+      const userProfile = userProfileDoc.data() as any;
 
       if (!userProfile.hashedMechanicAccessCode) {
         logger.error(
@@ -169,10 +169,9 @@ export const validateMechanicAccess = onCall(
   },
 );
 
-// v2 onCall function
 export const regenerateMechanicAccessCode = onCall(
   async (
-    request: CallableRequest<unknown>, // data is not expected, so unknown is fine
+    request: CallableRequest<unknown>,
   ): Promise<{
     success: boolean;
     newAccessCode?: string;
@@ -204,13 +203,9 @@ export const regenerateMechanicAccessCode = onCall(
       });
 
       logger.info(
-        `Mechanic access code regenerated for user ${userId}.`,
-        "New plaintext code (DEV ONLY):",
-        plaintextAccessCode,
+        `Mechanic access code regenerated for user ${userId}. ` +
+        `New plaintext code (DEV ONLY): ${plaintextAccessCode}`,
       );
-      // In a real scenario, you would not return the plaintext code here
-      // if the function's sole purpose is regeneration. This is just for
-      // demonstration or if the client needs it *immediately* one time.
       return {
         success: true,
         newAccessCode: plaintextAccessCode,
