@@ -1,6 +1,6 @@
 "use server";
 
-import * as functions from "firebase-functions"; // v1 - for .region() and auth
+import * as functionsV1 from "firebase-functions"; // v1 - for .region() and auth
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
@@ -34,7 +34,7 @@ const generatePlaintextAccessCode = (): string => {
  * Triggered when a new user signs up.
  * Creates a user profile in Firestore with a hashed access code.
  */
-export const createUserProfileOnSignUp = functions
+export const createUserProfileOnSignUp = functionsV1
   .region("europe-west1")
   .auth
   .user()
