@@ -14,7 +14,7 @@ export default function Error({
 }) {
   // console.error(error); // The original error should be logged in your server terminal by Next.js
 
-  // Trivial change: adding a comment for build re-evaluation
+  // Trivial change: adding a comment for build re-evaluation (does not fix ENOENT directly)
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 text-center">
       <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
