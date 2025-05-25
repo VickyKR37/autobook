@@ -15,13 +15,13 @@ import { getFunctions, type Functions } from "firebase/functions";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyDFZqtK0XWNUAGhjjm9umK3HiRQFtRAz5M",
-  authDomain: "autobook-38b5f.firebaseapp.com",
-  projectId: "autobook-38b5f",
-  storageBucket: "autobook-38b5f.appspot.com", // Corrected storageBucket URL
-  messagingSenderId: "822286913370",
-  appId: "1:822286913370:web:8f81605eda17bd34b82d63",
-  measurementId: "G-HR8G865SG3"
+  apiKey: "AIzaSyCLHWKvhg_ZuPXsvxHpnJPQTuW3RSoE3vc",
+  authDomain: "autobook-s0cch.firebaseapp.com",
+  databaseURL: "https://autobook-s0cch-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "autobook-s0cch",
+  storageBucket: "autobook-s0cch.firebasestorage.app",
+  messagingSenderId: "1009303939584",
+  appId: "1:1009303939584:web:0305c0b9f90d6b25c306e5"
 };
 
 
@@ -55,12 +55,12 @@ if (typeof window !== 'undefined') {
       }
       try {
         remoteConfig = getRemoteConfig(app);
-      // You might want to set default Remote Config values and activate it here
-      // For example:
-      // remoteConfig.defaultConfig = { "welcome_message": "Hello" };
-      // fetchAndActivate(remoteConfig);
+        // You might want to set default Remote Config values and activate it here
+        // For example:
+        // remoteConfig.defaultConfig = { "welcome_message": "Hello" };
+        // fetchAndActivate(remoteConfig);
       } catch (err) {
-         console.log('Failed to initialize Firebase Remote Config', err);
+        console.log('Failed to initialize Firebase Remote Config', err);
       }
     } else {
       console.log("Firebase Analytics, Performance, Messaging, or Remote Config is not supported in this environment.");
