@@ -6,6 +6,7 @@ import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt"; // For hashing access codes
 import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
+
 import {
   HttpsError,
   CallableRequest,
@@ -62,9 +63,12 @@ export const createUserProfileOnSignUp = onUserCreated(
 
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
       logger.info(
-        "User profile created for " + user.uid + " with hashed access code.",
-        "Plaintext for DEV ONLY:", // Important: Do not log plaintext in prod
-        plaintextAccessCode
+        `User profile created for ${user.uid} with hashed access code.`
+      );
+      // Important: Do not log plaintextAccessCode in production environments
+      // For development and testing, you might log it:
+      logger.info(
+        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`
       );
     } catch (error) {
       logger.error(
@@ -204,7 +208,7 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       });
 
       logger.info(`Mechanic access code regenerated for user ${userId}.`);
-      // Return the new plaintext code to the client
+      // Return the new plaintext code to the client for one-time display
       return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
       logger.error(
