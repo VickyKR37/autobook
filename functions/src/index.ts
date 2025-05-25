@@ -1,9 +1,15 @@
 
+"use server"; // This directive is typically for Next.js server components, not Cloud Functions.
+// It's likely benign here but not standard for Cloud Functions.
+
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
 import * as functions from "firebase-functions";
 import type {UserRecord} from "firebase-admin/auth";
-import type {HttpsError, CallableContext} from "firebase-functions/v1/https"; // For v1 onCall
+import type {
+  HttpsError,
+  CallableContext,
+} from "firebase-functions/v1/https"; // For v1 onCall
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -189,16 +195,16 @@ export const regenerateMechanicAccessCode = functions
   .https.onCall(
     async (
       _data: unknown, // Data is not used by this function for v1
-      context: CallableContext,
+      _context: CallableContext, // Prefixed as unused
     ): Promise<RegenerateCodeResult> => {
-      if (!context.auth) {
+      if (!_context.auth) {
         throw new functions.https.HttpsError(
           "unauthenticated",
           "User must be authenticated to regenerate access code.",
         );
       }
 
-      const userId = context.auth.uid;
+      const userId = _context.auth.uid;
       functions.logger.info(
         `User ${userId} requesting to regenerate mechanic access code.`,
       );
