@@ -1,3 +1,4 @@
+
 'use client';
 
 // import { useEffect } from 'react'; // Removed for simplification
@@ -13,6 +14,7 @@ export default function Error({
 }) {
   // console.error(error); // The original error should be logged in your server terminal by Next.js
 
+  // Trivial change: adding a comment for build re-evaluation
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 text-center">
       <AlertTriangle className="w-16 h-16 text-destructive mb-6" />
@@ -20,7 +22,7 @@ export default function Error({
       <p className="text-lg text-muted-foreground mb-8 max-w-md">
         We encountered an unexpected error. Please try again.
       </p>
-      {/* 
+      {/*
         Displaying error.message was removed to simplify the error component.
         The actual error details should be checked in the server console.
       */}

@@ -1,14 +1,19 @@
+
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
 import * as functions from "firebase-functions";
-import type { UserRecord } from "firebase-admin/auth";
-import type { HttpsError, CallableContext } from "firebase-functions/v1/https"; // For v1 onCall
+import type {UserRecord} from "firebase-admin/auth";
+import type {HttpsError, CallableContext} from "firebase-functions/v1/https"; // For v1 onCall
 
 admin.initializeApp();
 const db = admin.firestore();
 
 const SALT_ROUNDS = 10;
 
+/**
+ * Generates a random 6-character uppercase alphanumeric string.
+ * @return {string} The generated access code.
+ */
 const generatePlaintextAccessCode = (): string => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
@@ -32,7 +37,7 @@ export const createUserProfileOnSignUp = functions
     if (!user.email) {
       functions.logger.error(
         "User email is missing, cannot create user profile.",
-        { uid: user.uid },
+        {uid: user.uid},
       );
       return;
     }
@@ -60,6 +65,8 @@ export const createUserProfileOnSignUp = functions
         });
 
       functions.logger.info(`User profile created for ${user.uid}`);
+      // This log is for development/debugging only.
+      // In production, plaintext codes should not be logged.
       functions.logger.info(
         `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`,
       );
@@ -88,9 +95,9 @@ export const validateMechanicAccess = functions
   .https.onCall(
     async (
       data: ValidateMechanicAccessData,
-      context: CallableContext, // context is optional for v1 but good for auth checks
+      _context: CallableContext, // Parameter from v1 onCall, prefixed as unused
     ): Promise<ValidateMechanicAccessResult> => {
-      const { ownerEmail, accessCode } = data;
+      const {ownerEmail, accessCode} = data;
 
       if (!ownerEmail || !accessCode) {
         throw new functions.https.HttpsError(
@@ -121,7 +128,6 @@ export const validateMechanicAccess = functions
         }
 
         const userProfileDoc = profileQuery.docs[0];
-        // Cast to a more specific type if possible, or use as any and check properties
         const userProfile = userProfileDoc.data() as UserProfile;
 
         if (!userProfile.hashedMechanicAccessCode) {
@@ -163,7 +169,6 @@ export const validateMechanicAccess = functions
           "Error during mechanic access validation:",
           error,
         );
-        // It's good practice to cast error to HttpsError or Error type
         const httpsError = error as HttpsError;
         throw new functions.https.HttpsError(
           httpsError.code || "internal",
@@ -183,7 +188,7 @@ export const regenerateMechanicAccessCode = functions
   .region("europe-west1")
   .https.onCall(
     async (
-      data: unknown, // Data is not used, but required by onCall
+      _data: unknown, // Data is not used by this function for v1
       context: CallableContext,
     ): Promise<RegenerateCodeResult> => {
       if (!context.auth) {
@@ -212,6 +217,8 @@ export const regenerateMechanicAccessCode = functions
             admin.firestore.FieldValue.serverTimestamp(),
         });
 
+        // This log is for development/debugging only.
+        // In production, plaintext codes should not be logged.
         functions.logger.info(
           `Mechanic access code regenerated for user ${userId}. ` +
           `New plaintext code (DEV ONLY): ${plaintextAccessCode}`,
