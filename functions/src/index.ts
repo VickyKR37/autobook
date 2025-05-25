@@ -13,7 +13,7 @@ import {
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  UserCreatedEvent, // 'type' keyword ensures it's a type import
+  type UserCreatedEvent, // 'type' keyword ensures it's a type import
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -37,7 +37,7 @@ const generatePlaintextAccessCode = (): string => {
  */
 export const createUserProfileOnSignUp = onUserCreated(
   async (event: UserCreatedEvent): Promise<void> => {
-    const user = event.data as AdminUserRecord;
+    const user = event.data as AdminUserRecord; // Access user data via event.data
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
     if (!user.email) {
@@ -154,7 +154,8 @@ export const validateMechanicAccess = functions.https.onCall(
         };
       } else {
         logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
+          "Mechanic access DENIED for owner: " +
+          `${ownerEmail}. Invalid code.`
         );
         return {success: false, error: "Invalid owner email or access code."};
       }
@@ -213,7 +214,8 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
       logger.error(
-        `Error regenerating code for user ${userId}:`, error
+        `Error regenerating code for user ${userId}:`,
+        error
       );
       throw new HttpsError(
         "internal",
