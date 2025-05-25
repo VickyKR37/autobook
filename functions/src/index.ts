@@ -10,7 +10,6 @@ import {
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
-import type {UserRecord} from "firebase-admin/auth";
 
 // Set default region for all v2 functions
 setGlobalOptions({region: "europe-west1"});
@@ -130,7 +129,8 @@ export const validateMechanicAccess = onCall(
 
       if (isMatch) {
         logger.info(
-          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`,
+          `Mechanic access GRANTED for owner: ${ownerEmail} ` +
+          `(User ID: ${userProfile.userId})`,
         );
         return {
           success: true,
