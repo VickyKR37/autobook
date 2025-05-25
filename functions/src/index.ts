@@ -4,16 +4,15 @@
 import * as functions from "firebase-functions/v2";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcrypt"; // For hashing access codes
 import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
 import {
   HttpsError,
   CallableRequest,
-  // CallableContext, // CallableContext is not directly used, request.auth is preferred
 } from "firebase-functions/v2/https";
 import {
   onUserCreated,
-  type UserCreatedEvent, // Re-added 'type' keyword
+  type UserCreatedEvent, // 'type' keyword ensures it's a type import
 } from "firebase-functions/v2/identity";
 
 admin.initializeApp();
@@ -35,8 +34,10 @@ const generatePlaintextAccessCode = (): string => {
  */
 export const createUserProfileOnSignUp = onUserCreated(
   async (event: UserCreatedEvent) => {
-    const user = event.data as AdminUserRecord; // User data is in event.data
+    // User data is in event.data for v2 identity triggers
+    const user = event.data as AdminUserRecord;
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
+
     if (!user.email) {
       logger.error(
         "User email is missing, cannot create user profile.",
@@ -62,7 +63,7 @@ export const createUserProfileOnSignUp = onUserCreated(
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
       logger.info(
         "User profile created for " + user.uid + " with hashed access code.",
-        "Plaintext for DEV ONLY:",
+        "Plaintext for DEV ONLY:", // Important: Do not log plaintext in prod
         plaintextAccessCode
       );
     } catch (error) {
@@ -77,14 +78,15 @@ export const createUserProfileOnSignUp = onUserCreated(
 
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
+ * The request data should contain ownerEmail and accessCode.
  * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request
- * - The request object.
+ * - The request object from the client.
  * @returns {Promise<{
  *  success: boolean,
  *  ownerEmail?: string,
  *  ownerUserId?: string,
  *  error?: string
- * }>} Result.
+ * }>} Result of the validation.
  */
 export const validateMechanicAccess = functions.https.onCall(
   async (
@@ -122,7 +124,7 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (!userProfile.hashedMechanicAccessCode) {
         logger.error(
-          `User profile for ${ownerEmail} is missing a hashed access code.`
+          `User profile for ${ownerEmail} missing hashed access code.`
         );
         return {
           success: false,
@@ -165,17 +167,19 @@ export const validateMechanicAccess = functions.https.onCall(
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
  * @param {CallableRequest<unknown>} request - The request object.
+ * `request.auth` is used to identify the authenticated user.
  * @returns {Promise<{
  *  success: boolean,
- *  newAccessCode?: string,
+ *  newAccessCode?: string, // The new plaintext code
  *  error?: string
- * }>} Result.
+ * }>} Result containing the new code or an error.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
-    request: CallableRequest<unknown> // No specific data expected
+    request: CallableRequest<unknown> // No specific data expected in request.data
   ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
+      // This check is essential for security.
       throw new HttpsError(
         "unauthenticated",
         "User must be authenticated to regenerate access code."
@@ -200,6 +204,7 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       });
 
       logger.info(`Mechanic access code regenerated for user ${userId}.`);
+      // Return the new plaintext code to the client
       return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
       logger.error(
