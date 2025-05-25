@@ -1,20 +1,16 @@
-
 "use server";
 
 import * as functions from "firebase-functions/v2";
+import * as functionsAuth from "firebase-functions/v1/auth";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
+import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
 import * as bcrypt from "bcrypt"; // For hashing access codes
 
 import {
   HttpsError,
   CallableRequest,
 } from "firebase-functions/v2/https";
-import {
-  onUserCreated,
-  type UserCreatedEvent,
-} from "firebase-functions/v2/identity";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -32,18 +28,17 @@ const generatePlaintextAccessCode = (): string => {
  * Firebase Authentication trigger that fires when a new user is created.
  * Creates a corresponding user profile in Firestore with a hashed mechanic
  * access code.
- * @param {UserCreatedEvent} event The event object containing user data.
+ * @param {AdminUserRecord} user The user object containing user data.
  * @return {Promise<void>} A promise that resolves when the function completes.
  */
-export const createUserProfileOnSignUp = onUserCreated(
-  async (event: UserCreatedEvent): Promise<void> => {
-    const user = event.data as AdminUserRecord;
+export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
+  async (user: AdminUserRecord): Promise<void> => {
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
     if (!user.email) {
       logger.error(
         "User email is missing, cannot create user profile.",
-        {uid: user.uid}
+        { uid: user.uid }
       );
       return;
     }
@@ -80,29 +75,20 @@ export const createUserProfileOnSignUp = onUserCreated(
   }
 );
 
-
 /**
  * HTTP Callable function for mechanics to validate access to an owner's data.
  * The request data should contain ownerEmail and accessCode.
- * @param {CallableRequest<{ownerEmail: string, accessCode: string}>} request
- * - The request object from the client.
- * @return {Promise<{
- *  success: boolean,
- *  ownerEmail?: string,
- *  ownerUserId?: string,
- *  error?: string
- * }>} Result of the validation.
  */
 export const validateMechanicAccess = functions.https.onCall(
   async (
-    request: CallableRequest<{ownerEmail: string; accessCode: string}>
+    request: CallableRequest<{ ownerEmail: string; accessCode: string }>
   ): Promise<{
     success: boolean;
     ownerEmail?: string;
     ownerUserId?: string;
     error?: string;
   }> => {
-    const {ownerEmail, accessCode} = request.data;
+    const { ownerEmail, accessCode } = request.data;
 
     if (!ownerEmail || !accessCode) {
       throw new HttpsError(
@@ -121,7 +107,7 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (profileQuery.empty) {
         logger.warn(`No user profile found for email: ${ownerEmail}`);
-        return {success: false, error: "Invalid owner email or access code."};
+        return { success: false, error: "Invalid owner email or access code." };
       }
 
       const userProfileDoc = profileQuery.docs[0];
@@ -156,7 +142,7 @@ export const validateMechanicAccess = functions.https.onCall(
         logger.warn(
           `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
         );
-        return {success: false, error: "Invalid owner email or access code."};
+        return { success: false, error: "Invalid owner email or access code." };
       }
     } catch (error) {
       logger.error("Error during mechanic access validation:", error);
@@ -171,20 +157,12 @@ export const validateMechanicAccess = functions.https.onCall(
 /**
  * HTTP Callable function for an authenticated car owner to regenerate
  * their mechanic access code.
- * @param {CallableRequest<unknown>} request - The request object.
- * `request.auth` is used to identify the authenticated user.
- * @return {Promise<{
- *  success: boolean,
- *  newAccessCode?: string, // The new plaintext code
- *  error?: string
- * }>} Result containing the new code or an error.
  */
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
     request: CallableRequest<unknown>
-  ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
+  ): Promise<{ success: boolean; newAccessCode?: string; error?: string }> => {
     if (!request.auth) {
-      // This check is essential for security.
       throw new HttpsError(
         "unauthenticated",
         "User must be authenticated to regenerate access code."
@@ -209,8 +187,7 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
       });
 
       logger.info(`Mechanic access code regenerated for user ${userId}.`);
-      // Return the new plaintext code to the client for one-time display
-      return {success: true, newAccessCode: plaintextAccessCode};
+      return { success: true, newAccessCode: plaintextAccessCode };
     } catch (error) {
       logger.error(
         `Error regenerating code for user ${userId}:`,
