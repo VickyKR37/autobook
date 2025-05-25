@@ -4,12 +4,12 @@ import * as functions from "firebase-functions/v2";
 import * as functionsAuth from "firebase-functions/v1/auth";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
-import type { UserRecord as AdminUserRecord } from "firebase-admin/auth";
+import type {UserRecord as AdminUserRecord} from "firebase-admin/auth";
 import * as bcrypt from "bcrypt"; // For hashing access codes
 
 import {
   HttpsError,
-  CallableRequest,
+  CallableRequest
 } from "firebase-functions/v2/https";
 
 admin.initializeApp();
@@ -28,18 +28,13 @@ const generatePlaintextAccessCode = (): string => {
  * Firebase Authentication trigger that fires when a new user is created.
  * Creates a corresponding user profile in Firestore with a hashed mechanic
  * access code.
- * @param {AdminUserRecord} user The user object containing user data.
- * @return {Promise<void>} A promise that resolves when the function completes.
  */
 export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
   async (user: AdminUserRecord): Promise<void> => {
     logger.info(`New user signed up: ${user.uid}, email: ${user.email}`);
 
     if (!user.email) {
-      logger.error(
-        "User email is missing, cannot create user profile.",
-        { uid: user.uid }
-      );
+      logger.error("User email is missing, cannot create user profile.", {uid: user.uid});
       return;
     }
 
@@ -54,23 +49,14 @@ export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
         userId: user.uid,
         email: user.email,
         hashedMechanicAccessCode: hashedMechanicAccessCode,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
 
       await db.collection("userProfiles").doc(user.uid).set(userProfile);
-      logger.info(
-        `User profile created for ${user.uid} with hashed access code.`
-      );
-      // Important: Do not log plaintextAccessCode in production environments
-      // For development and testing, you might log it:
-      logger.info(
-        `DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`
-      );
+      logger.info(`User profile created for ${user.uid} with hashed access code.`);
+      logger.info(`DEV ONLY - Plaintext code for ${user.uid}: ${plaintextAccessCode}`);
     } catch (error) {
-      logger.error(
-        `Error creating user profile for ${user.uid}:`,
-        error
-      );
+      logger.error(`Error creating user profile for ${user.uid}:`, error);
     }
   }
 );
@@ -81,20 +67,17 @@ export const createUserProfileOnSignUp = functionsAuth.user().onCreate(
  */
 export const validateMechanicAccess = functions.https.onCall(
   async (
-    request: CallableRequest<{ ownerEmail: string; accessCode: string }>
+    request: CallableRequest<{ownerEmail: string; accessCode: string}>
   ): Promise<{
     success: boolean;
     ownerEmail?: string;
     ownerUserId?: string;
     error?: string;
   }> => {
-    const { ownerEmail, accessCode } = request.data;
+    const {ownerEmail, accessCode} = request.data;
 
     if (!ownerEmail || !accessCode) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Owner email and access code are required."
-      );
+      throw new HttpsError("invalid-argument", "Owner email and access code are required.");
     }
 
     logger.info(`Mechanic validation attempt for owner: ${ownerEmail}`);
@@ -107,19 +90,17 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (profileQuery.empty) {
         logger.warn(`No user profile found for email: ${ownerEmail}`);
-        return { success: false, error: "Invalid owner email or access code." };
+        return {success: false, error: "Invalid owner email or access code."};
       }
 
       const userProfileDoc = profileQuery.docs[0];
       const userProfile = userProfileDoc.data();
 
       if (!userProfile.hashedMechanicAccessCode) {
-        logger.error(
-          `User profile for ${ownerEmail} missing hashed access code.`
-        );
+        logger.error(`User profile for ${ownerEmail} missing hashed access code.`);
         return {
           success: false,
-          error: "Access code not set up for this owner.",
+          error: "Access code not set up for this owner."
         };
       }
 
@@ -130,26 +111,20 @@ export const validateMechanicAccess = functions.https.onCall(
 
       if (isMatch) {
         logger.info(
-          "Mechanic access GRANTED for owner: " +
-          `${ownerEmail} (User ID: ${userProfile.userId})`
+          `Mechanic access GRANTED for owner: ${ownerEmail} (User ID: ${userProfile.userId})`
         );
         return {
           success: true,
           ownerEmail: userProfile.email,
-          ownerUserId: userProfile.userId,
+          ownerUserId: userProfile.userId
         };
       } else {
-        logger.warn(
-          `Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`
-        );
-        return { success: false, error: "Invalid owner email or access code." };
+        logger.warn(`Mechanic access DENIED for owner: ${ownerEmail}. Invalid code.`);
+        return {success: false, error: "Invalid owner email or access code."};
       }
     } catch (error) {
       logger.error("Error during mechanic access validation:", error);
-      throw new HttpsError(
-        "internal",
-        "An internal error occurred during validation."
-      );
+      throw new HttpsError("internal", "An internal error occurred during validation.");
     }
   }
 );
@@ -161,17 +136,12 @@ export const validateMechanicAccess = functions.https.onCall(
 export const regenerateMechanicAccessCode = functions.https.onCall(
   async (
     request: CallableRequest<unknown>
-  ): Promise<{ success: boolean; newAccessCode?: string; error?: string }> => {
+  ): Promise<{success: boolean; newAccessCode?: string; error?: string}> => {
     if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "User must be authenticated to regenerate access code."
-      );
+      throw new HttpsError("unauthenticated", "User must be authenticated to regenerate access code.");
     }
     const userId = request.auth.uid;
-    logger.info(
-      `User ${userId} requesting to regenerate mechanic access code.`
-    );
+    logger.info(`User ${userId} requesting to regenerate mechanic access code.`);
 
     const plaintextAccessCode = generatePlaintextAccessCode();
     try {
@@ -182,21 +152,14 @@ export const regenerateMechanicAccessCode = functions.https.onCall(
 
       await db.collection("userProfiles").doc(userId).update({
         hashedMechanicAccessCode: hashedMechanicAccessCode,
-        accessCodeLastGeneratedAt:
-          admin.firestore.FieldValue.serverTimestamp(),
+        accessCodeLastGeneratedAt: admin.firestore.FieldValue.serverTimestamp()
       });
 
       logger.info(`Mechanic access code regenerated for user ${userId}.`);
-      return { success: true, newAccessCode: plaintextAccessCode };
+      return {success: true, newAccessCode: plaintextAccessCode};
     } catch (error) {
-      logger.error(
-        `Error regenerating code for user ${userId}:`,
-        error
-      );
-      throw new HttpsError(
-        "internal",
-        "Failed to regenerate access code."
-      );
+      logger.error(`Error regenerating code for user ${userId}:`, error);
+      throw new HttpsError("internal", "Failed to regenerate access code.");
     }
   }
 );
