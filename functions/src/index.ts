@@ -1,19 +1,24 @@
 
-// This directive is for Next.js server components, not Cloud Functions.
-// It's benign here but not standard for Cloud Functions.
+// This directive was for Next.js server components, not Cloud Functions.
+// It was removed as it's not applicable here.
 
 import * as admin from "firebase-admin";
 import * as bcrypt from "bcrypt";
+// Standard import for Firebase Functions v1 SDK.
+// If TypeScript reports that 'functions.region' does not exist and that
+// 'functions' is typed as the v2 module, it indicates an environment-specific
+// module resolution issue, as firebase-functions@6.x.x default export
+// should point to v1 types.
 import * as functions from "firebase-functions";
-import type {UserRecord} from "firebase-admin/auth";
+import type { UserRecord } from "firebase-admin/auth";
 import type {
   HttpsError,
   CallableContext,
 } from "firebase-functions/v1/https";
 
 admin.initializeApp();
-const db = admin.firestore();
 
+const db = admin.firestore();
 const SALT_ROUNDS = 10;
 
 /**
@@ -32,6 +37,7 @@ interface UserProfile {
   accessCodeLastGeneratedAt?: admin.firestore.FieldValue;
 }
 
+// This function uses the v1 SDK syntax.
 export const createUserProfileOnSignUp = functions
   .region("europe-west1")
   .auth.user()
@@ -96,12 +102,13 @@ interface ValidateMechanicAccessResult {
   error?: string;
 }
 
+// This function uses the v1 SDK syntax.
 export const validateMechanicAccess = functions
   .region("europe-west1")
   .https.onCall(
     async (
       data: ValidateMechanicAccessData,
-      _context: CallableContext, // Parameter from v1 onCall, prefixed as unused
+      _context: CallableContext, // _context is from v1 onCall
     ): Promise<ValidateMechanicAccessResult> => {
       const {ownerEmail, accessCode} = data;
 
@@ -175,7 +182,7 @@ export const validateMechanicAccess = functions
           "Error during mechanic access validation:",
           error,
         );
-        const httpsError = error as HttpsError;
+        const httpsError = error as HttpsError; // Cast to v1 HttpsError
         throw new functions.https.HttpsError(
           httpsError.code || "internal",
           httpsError.message || "An internal error occurred.",
@@ -190,21 +197,22 @@ interface RegenerateCodeResult {
   error?: string;
 }
 
+// This function uses the v1 SDK syntax.
 export const regenerateMechanicAccessCode = functions
   .region("europe-west1")
   .https.onCall(
     async (
       _data: unknown, // Data is not used by this function for v1
-      _context: CallableContext, // Prefixed as unused
+      context: CallableContext, // context is from v1 onCall
     ): Promise<RegenerateCodeResult> => {
-      if (!_context.auth) {
+      if (!context.auth) {
         throw new functions.https.HttpsError(
           "unauthenticated",
           "User must be authenticated to regenerate access code.",
         );
       }
 
-      const userId = _context.auth.uid;
+      const userId = context.auth.uid;
       functions.logger.info(
         `User ${userId} requesting to regenerate mechanic access code.`,
       );
@@ -239,7 +247,7 @@ export const regenerateMechanicAccessCode = functions
           `Error regenerating code for user ${userId}:`,
           error,
         );
-        const httpsError = error as HttpsError;
+        const httpsError = error as HttpsError; // Cast to v1 HttpsError
         throw new functions.https.HttpsError(
           httpsError.code || "internal",
           httpsError.message || "Failed to regenerate access code.",
