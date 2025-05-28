@@ -108,7 +108,6 @@ export const validateMechanicAccess = functions
   .https.onCall(
     async (
       data: ValidateMechanicAccessData,
-      _context: CallableContext, // _context is from v1 onCall
     ): Promise<ValidateMechanicAccessResult> => {
       const {ownerEmail, accessCode} = data;
 
