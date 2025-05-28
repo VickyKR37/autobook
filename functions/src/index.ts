@@ -10,7 +10,7 @@ import * as bcrypt from "bcrypt";
 // module resolution issue, as firebase-functions@6.x.x default export
 // should point to v1 types.
 import * as functions from "firebase-functions/v1";
-import type { UserRecord } from "firebase-admin/auth";
+import type {UserRecord} from "firebase-admin/auth";
 import type {
   HttpsError,
   CallableContext,
